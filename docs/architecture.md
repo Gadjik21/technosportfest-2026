@@ -29,7 +29,7 @@ flowchart LR
 | Модуль / владелец | Таблицы | Публичный интерфейс внутри приложения |
 |---|---|---|
 | Identity / Б1 | `users`, `sessions`, `athlete_profiles`, `athlete_disciplines` | `current_user`, `require_role`, `get_athlete_summary` |
-| Competitions / Б1 | `disciplines`, `competitions`, `registrations` | `get_registration`, `list_participants`, `complete_competition` |
+| Competitions / Б1 | `disciplines`, `competitions`, `registrations` | `lock_for_result_publication`, `get_registration`, `list_participants`, `complete_competition` |
 | Results / Б2 | `results` | `list_published_results`, `rating_for_athlete` |
 | Content / Б2 | `news`, `documents` | REST-контроллеры контента |
 
@@ -44,8 +44,10 @@ sequenceDiagram
     participant DB as PostgreSQL
     O->>UI: Опубликовать результаты
     UI->>R: POST /competitions/{id}/results/publish + cookie + CSRF
-    R->>DB: BEGIN; блокировка соревнования
-    R->>C: Проверить status=published и принадлежность заявок
+    R->>DB: BEGIN
+    R->>C: Заблокировать соревнование и проверить status=published
+    C->>DB: SELECT ... FOR UPDATE
+    R->>C: Проверить принадлежность заявок
     R->>DB: Опубликовать все черновики
     R->>C: complete_competition(id, тот же UnitOfWork)
     C->>DB: status=completed
@@ -91,7 +93,7 @@ erDiagram
 ### Параллельный старт
 
 1. Все используют `contracts/openapi.yaml` как единственный внешний контракт. Изменение формы запроса/ответа — через PR с обновлённым примером, согласование Б1, Б2 и фронтенда до merge.
-2. Б1 первым публикует миграции `users`, `disciplines`, `competitions`, `registrations` и интерфейс `get_registration`/`complete_competition`. Б2 может писать сервисы по интерфейсу и фикстурам до готовой БД.
+2. Б1 первым публикует миграции `users`, `disciplines`, `competitions`, `registrations` и интерфейс `lock_for_result_publication`/`get_registration`/`complete_competition`. Б2 может писать сервисы по интерфейсу и фикстурам до готовой БД.
 3. Фронтенд генерирует типы из OpenAPI и начинает с `contracts/examples/`; `X-CSRF-Token` берётся до первого POST. Продакт фиксирует подписи, пустые состояния и ошибки для каждого экрана v1.
 4. Интеграция v1 проверяет сценарий из ТЗ. Затем подключаются v2 разделы, затем приёмка v3.
 
