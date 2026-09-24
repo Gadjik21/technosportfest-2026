@@ -93,9 +93,11 @@ for path, methods in spec["paths"].items():
         if operation_id in operation_ids:
             errors.append(f"duplicate operationId {operation_id}")
         operation_ids.add(operation_id)
-        if method in {"post", "put", "patch", "delete"}:
-            if not any("csrfHeader" in entry for entry in operation.get("security", [])):
-                errors.append(f"{method.upper()} {path}: missing CSRF requirement")
+        if method in {"post", "put", "patch", "delete"} and operation.get("x-origin-check") is not True:
+            errors.append(f"{method.upper()} {path}: missing Origin-check requirement")
+        if path not in {"/auth/register", "/auth/login", "/auth/logout"} and operation.get("security"):
+            if not any("accessCookie" in entry for entry in operation["security"]):
+                errors.append(f"{method.upper()} {path}: unsupported auth scheme")
         if not operation.get("x-owner") or not operation.get("x-milestone"):
             errors.append(f"{method.upper()} {path}: missing owner or milestone")
 

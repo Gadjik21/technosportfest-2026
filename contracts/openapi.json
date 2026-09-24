@@ -13,7 +13,7 @@
   "tags": [
     {
       "name": "Auth",
-      "description": "Б1: вход и сессия"
+      "description": "Б1: вход и JWT"
     },
     {
       "name": "Profile",
@@ -37,39 +37,6 @@
     }
   ],
   "paths": {
-    "/auth/csrf": {
-      "get": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Получить CSRF-токен",
-        "operationId": "getCsrf",
-        "x-owner": "B1",
-        "x-milestone": "v1",
-        "responses": {
-          "200": {
-            "description": "Успех",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CsrfToken"
-                }
-              }
-            },
-            "headers": {
-              "Set-Cookie": {
-                "description": "tsf_session=...; HttpOnly; Secure; SameSite=Lax; Path=/api/v1",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "description": "Создаёт анонимную сессию при отсутствии cookie. Вызвать перед первым изменяющим запросом.",
-        "security": []
-      }
-    },
     "/auth/register": {
       "post": {
         "tags": [
@@ -91,7 +58,7 @@
             },
             "headers": {
               "Set-Cookie": {
-                "description": "tsf_session=...; HttpOnly; Secure; SameSite=Lax; Path=/api/v1",
+                "description": "tsf_access=<JWT>; HttpOnly; SameSite=Lax; Secure в production; Path=/api/v1; Max-Age=86400",
                 "schema": {
                   "type": "string"
                 }
@@ -108,12 +75,8 @@
             "$ref": "#/components/responses/422"
           }
         },
-        "description": "Роль всегда athlete. Email уникален без учёта регистра. Сессия ротируется.",
-        "security": [
-          {
-            "csrfHeader": []
-          }
-        ],
+        "description": "Роль всегда athlete. Email уникален без учёта регистра. Выдаёт JWT на 24 часа в cookie.",
+        "security": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -123,7 +86,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/auth/login": {
@@ -147,7 +111,7 @@
             },
             "headers": {
               "Set-Cookie": {
-                "description": "tsf_session=...; HttpOnly; Secure; SameSite=Lax; Path=/api/v1",
+                "description": "tsf_access=<JWT>; HttpOnly; SameSite=Lax; Secure в production; Path=/api/v1; Max-Age=86400",
                 "schema": {
                   "type": "string"
                 }
@@ -164,12 +128,8 @@
             "$ref": "#/components/responses/422"
           }
         },
-        "description": "Неверная пара email/пароль возвращает 401 с code INVALID_CREDENTIALS; сессия ротируется.",
-        "security": [
-          {
-            "csrfHeader": []
-          }
-        ],
+        "description": "Неверная пара email/пароль возвращает 401 с code INVALID_CREDENTIALS. Выдаёт JWT на 24 часа в cookie.",
+        "security": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -179,7 +139,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/auth/logout": {
@@ -193,21 +154,22 @@
         "x-milestone": "v1",
         "responses": {
           "204": {
-            "description": "Сессия отозвана; cookie очищена"
-          },
-          "401": {
-            "$ref": "#/components/responses/401"
+            "description": "Cookie очищена. Уже выданный JWT нельзя отозвать до exp.",
+            "headers": {
+              "Set-Cookie": {
+                "description": "tsf_access=; HttpOnly; SameSite=Lax; Secure в production; Path=/api/v1; Max-Age=0",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "$ref": "#/components/responses/403"
           }
         },
-        "security": [
-          {
-            "sessionCookie": [],
-            "csrfHeader": []
-          }
-        ]
+        "security": [],
+        "x-origin-check": true
       }
     },
     "/auth/me": {
@@ -236,7 +198,7 @@
         },
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ]
       }
@@ -270,7 +232,7 @@
         },
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ]
       },
@@ -306,8 +268,7 @@
         "description": "Только athlete. disciplineIds — полный новый набор без дублей; все ID должны существовать.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "requestBody": {
@@ -319,7 +280,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/disciplines": {
@@ -456,8 +418,7 @@
         "description": "Только organizer. registrationDeadline <= startsAt < endsAt. Начальный status=draft.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "requestBody": {
@@ -469,7 +430,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/competitions/{competitionId}": {
@@ -547,8 +509,7 @@
         },
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -571,7 +532,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/competitions/{competitionId}/publish": {
@@ -613,8 +575,7 @@
         "description": "Только draft; дедлайн должен быть в будущем. Повторный вызов — 409.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -627,7 +588,8 @@
               "format": "uuid"
             }
           }
-        ]
+        ],
+        "x-origin-check": true
       }
     },
     "/competitions/{competitionId}/registrations": {
@@ -666,8 +628,7 @@
         "description": "Только athlete; соревнование published; now < registrationDeadline. Повторная заявка — 409 ALREADY_REGISTERED.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -680,7 +641,8 @@
               "format": "uuid"
             }
           }
-        ]
+        ],
+        "x-origin-check": true
       }
     },
     "/me/registrations": {
@@ -712,7 +674,7 @@
         },
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -773,7 +735,7 @@
         "description": "Только organizer.",
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -849,8 +811,7 @@
         "description": "Только organizer. Заявка должна принадлежать этому соревнованию. Допустимо только status=published; повторный PUT до публикации заменяет черновик.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -882,7 +843,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/competitions/{competitionId}/results/drafts": {
@@ -918,7 +880,7 @@
         "description": "Только organizer. Не включает опубликованные результаты.",
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -991,8 +953,7 @@
         "description": "Только organizer. Требуется >=1 черновик. Одна транзакция публикует все черновики и завершает соревнование. Повторный вызов — 409 ALREADY_COMPLETED.",
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -1005,7 +966,8 @@
               "format": "uuid"
             }
           }
-        ]
+        ],
+        "x-origin-check": true
       }
     },
     "/competitions/{competitionId}/results": {
@@ -1097,7 +1059,7 @@
         },
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -1218,7 +1180,7 @@
         "description": "Если результатов нет, points=0, resultsCount=0, rank=null.",
         "security": [
           {
-            "sessionCookie": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -1311,8 +1273,7 @@
         },
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "requestBody": {
@@ -1324,7 +1285,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/news/{id}": {
@@ -1398,8 +1360,7 @@
         },
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -1422,7 +1383,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/documents": {
@@ -1510,8 +1472,7 @@
         },
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "requestBody": {
@@ -1523,7 +1484,8 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     },
     "/documents/{id}": {
@@ -1561,8 +1523,7 @@
         },
         "security": [
           {
-            "sessionCookie": [],
-            "csrfHeader": []
+            "accessCookie": []
           }
         ],
         "parameters": [
@@ -1585,23 +1546,18 @@
               }
             }
           }
-        }
+        },
+        "x-origin-check": true
       }
     }
   },
   "components": {
     "securitySchemes": {
-      "sessionCookie": {
+      "accessCookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "tsf_session",
-        "description": "HttpOnly Secure SameSite=Lax, server-side session"
-      },
-      "csrfHeader": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "X-CSRF-Token",
-        "description": "Token from GET /auth/csrf, required on every mutating request"
+        "name": "tsf_access",
+        "description": "JWT, HttpOnly; SameSite=Lax; Secure в production; срок 24 часа"
       }
     },
     "schemas": {
@@ -1628,19 +1584,6 @@
         "required": [
           "code",
           "message"
-        ]
-      },
-      "CsrfToken": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "csrfToken": {
-            "type": "string",
-            "minLength": 16
-          }
-        },
-        "required": [
-          "csrfToken"
         ]
       },
       "User": {
@@ -2678,7 +2621,7 @@
         }
       },
       "401": {
-        "description": "Нет активной сессии",
+        "description": "Нет действующего JWT",
         "content": {
           "application/json": {
             "schema": {
@@ -2686,13 +2629,13 @@
             },
             "example": {
               "code": "UNAUTHENTICATED",
-              "message": "Нет активной сессии"
+              "message": "Нет действующего JWT"
             }
           }
         }
       },
       "403": {
-        "description": "Недостаточно прав или невалидный CSRF/Origin",
+        "description": "Недостаточно прав или неверный/отсутствующий Origin",
         "content": {
           "application/json": {
             "schema": {
@@ -2700,7 +2643,7 @@
             },
             "example": {
               "code": "FORBIDDEN",
-              "message": "Недостаточно прав или невалидный CSRF/Origin"
+              "message": "Недостаточно прав или неверный/отсутствующий Origin"
             }
           }
         }
