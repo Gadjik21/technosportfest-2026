@@ -1,5 +1,7 @@
 # Фронтенд
 
-Фронтенд работает с `../contracts/openapi.json` как с источником типов и маршрутов. Фикстуры в `../contracts/examples/` повторяют реальные формы ответа. Dev-сервер должен проксировать `/api/v1` на бэкенд, чтобы cookie оставалась на одном origin.
+React + TypeScript + Vite. `npm ci` устанавливает закреплённые версии, `npm run dev` запускает сайт на `http://localhost:5173`, `npm run build` генерирует API-типы, проверяет TypeScript и собирает SPA.
 
-На старте страницы `GET /auth/me`; после login/register состояние пользователя берётся из ответа. Браузер автоматически отправляет `HttpOnly` cookie, JavaScript не читает JWT. Для v1 обязательны экраны и состояния из `../docs/work-items.md`.
+`src/api.ts` — общий типизированный клиент. Он работает с `/api/v1` на том же origin; Vite проксирует запросы в локальный FastAPI. `HttpOnly` JWT cookie отправляется браузером, JavaScript не читает токен. На старте приложения вызывайте `GET /auth/me` и показывайте форму входа при `401`. Типы обновляются через `npm run types:api` из `../contracts/openapi.json`.
+
+Сейчас `App.tsx` — стартовая страница и индикатор доступности API. Экраны v1/v2 распределены в `../docs/work-items.md`; точные JSON-формы — в `../contracts/examples/`.

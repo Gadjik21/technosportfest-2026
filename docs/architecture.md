@@ -45,7 +45,7 @@ JWT в cookie требует защиты изменяющих запросов 
 | Results / Б2 | `results` | `list_published_results`, `rating_for_athlete` |
 | Content / Б2 | `news`, `documents` | REST-контроллеры контента |
 
-Модули импортируют сервисы соседнего модуля, не его ORM-модели и не пишут в чужие таблицы. Общая транзакция допускается через переданный `UnitOfWork`/DB session. Б1 владеет каркасом FastAPI, Alembic, настройками, Docker Compose и тестовым сидом. Б2 начинает со своих схем, сервисов и тестов на согласованном интерфейсе Competitions. Все миграции согласуются через один линейный Alembic head; разработчики не создают независимые head в общей ветке.
+Модули импортируют сервисы соседнего модуля, не его ORM-модели и не пишут в чужие таблицы. Общая транзакция проходит через переданный SQLAlchemy `Session`. Б1 владеет каркасом FastAPI, Alembic, настройками, Docker Compose и тестовым сидом. Б2 начинает со своих схем, сервисов и тестов на согласованном интерфейсе Competitions. Все миграции согласуются через один линейный Alembic head; разработчики не создают независимые head в общей ветке.
 
 ```mermaid
 sequenceDiagram
@@ -61,7 +61,7 @@ sequenceDiagram
     C->>DB: SELECT ... FOR UPDATE
     R->>C: Проверить принадлежность заявок
     R->>DB: Опубликовать все черновики
-    R->>C: complete_competition(id, тот же UnitOfWork)
+    R->>C: complete_competition(id, тот же Session)
     C->>DB: status=completed
     R->>DB: COMMIT
     R-->>UI: 200, опубликованные результаты

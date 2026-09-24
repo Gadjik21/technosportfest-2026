@@ -1,23 +1,51 @@
 # ТехноСпортФест 2026
 
-Стартовый репозиторий архитектуры и контрактов для команды: фронтенд, два бэкендера, продакт/дизайн. Это **контракт и каркас распределения работ**, а не готовое приложение.
+Монорепозиторий для фронтенда и двух бэкендеров. Сейчас запускаются каркас FastAPI, авторизация, первая миграция и React/Vite. Предметные маршруты соревнований, результатов и контента остаются задачами v1/v2; их формы уже зафиксированы в OpenAPI.
 
-## Читать в таком порядке
+## Стек и договорённости
 
-1. [Схема, границы модулей и этапы v1 → v2 → MVP](docs/architecture.md).
-2. [Правила API и сценарии ошибок](docs/contract-rules.md).
-3. [Машиночитаемый OpenAPI 3.0.3](contracts/openapi.json) и [JSON-примеры](contracts/examples/).
-4. [Задачи каждого участника](docs/work-items.md).
+- [Выбранные библиотеки и причины](docs/stack.md).
+- [Схема системы и версии v1 → v2 → MVP](docs/architecture.md).
+- [Правила API и ошибок](docs/contract-rules.md), [OpenAPI 3.0.3](contracts/openapi.json), [JSON-примеры](contracts/examples/).
+- [Задачи каждого участника](docs/work-items.md).
 
-## Решения на старт
+## Запуск локально
 
-- Один FastAPI, одна PostgreSQL, отдельные модули и владельцы таблиц. Nginx раздаёт фронтенд и проксирует `/api/v1`; авторизация проверяется FastAPI.
-- Короткий JWT в `HttpOnly` cookie, проверка `Origin` для изменяющих запросов. Redis и таблица сессий не нужны. Организатора нельзя создать публичной регистрацией.
-- Результаты публикуются атомарно с завершением соревнования. Рейтинг считается из опубликованных результатов.
-- Уведомления и брокер сообщений не входят в MVP.
+Нужны Docker с работающим daemon, Python 3.10+ для создания локального `.env` и Node 22.12+ для фронтенда.
 
-## Для параллельной разработки
+```bash
+python3 tools/init_env.py
+docker compose up --build
+```
 
-Б1 создаёт приложение, миграции и внутренние сервисы `get_registration`/`complete_competition`; Б2 реализует Results и Content по этим интерфейсам. Фронтенд строит типы и заглушки из `contracts/openapi.json` и примеров без ожидания бэкенда. Продакт/дизайн проверяет состояния экранов и сценарий приёмки. Первое изменение API делается только вместе с обновлением OpenAPI и JSON-примеров.
+API: `http://localhost:8000/health` и `http://localhost:8000/docs`. Swagger сейчас показывает только реализованные auth-маршруты; полный согласованный контракт лежит в `contracts/openapi.json`. Локальная PostgreSQL доступна на `localhost:5433`. При старте API применяет `alembic upgrade head`.
 
-Подробные команды запуска приложения добавляются в этот README после реализации каркаса Б1. До этого `python3 tools/check_contract.py` проверяет структуру контракта и согласованность примеров без сторонних пакетов.
+В другом терминале:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Фронтенд открывается на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Для демонстрационной учётной записи организатора:
+
+```bash
+docker compose exec api python -m app.seed --email organizer@example.com
+```
+
+Команда запросит пароль; пароль не хранится в репозитории. Публичная регистрация создаёт только спортсмена. В production задайте свой `JWT_SECRET`, `APP_ORIGINS` и `COOKIE_SECURE=true`; локальный `.env` игнорируется Git.
+
+## Проверки
+
+```bash
+python3 tools/check_contract.py
+cd backend && .venv/bin/python -m pytest -q
+cd ../frontend && npm run build
+```
+
+Установите зависимости бэкенда через `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`, если запускаете тесты без Docker. Команды Alembic выполняются из `backend/`: `.venv/bin/alembic upgrade head`, `.venv/bin/alembic revision --autogenerate -m "описание"`. Миграции в общей ветке должны сохранять один линейный head.
+
+## Кто меняет что
+
+Б1 владеет `backend/app/modules/identity`, `competitions`, миграциями пользователей и соревнований. Б2 владеет `results`, `content` и их миграциями. Общие `db.py`, `main.py` и конфигурацию меняют согласованно. Фронтенд получает типы через `cd frontend && npm run types:api`. Изменение внешнего API включает обновление `contracts/openapi.json` и JSON-примеров.

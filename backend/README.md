@@ -1,17 +1,19 @@
-# Бэкенд: ожидаемая структура
+# Бэкенд
+
+Каркас включает FastAPI, регистрацию спортсмена, вход, выход, `/auth/me`, JWT/Origin middleware, Pydantic-ошибки, SQLAlchemy Session и миграцию `0001_auth`. Предметные роутеры подключены в `app/main.py`, но пока пусты. Канонический внешний контракт — `../contracts/openapi.json`.
 
 ```text
-backend/
-  app/
-    main.py                 # создание FastAPI, подключение роутеров
-    db.py                   # UnitOfWork, подключение PostgreSQL
-    modules/
-      identity/             # Б1: users, profiles, JWT, auth
-      competitions/         # Б1: disciplines, competitions, registrations
-      results/              # Б2: results, rating, публикация
-      content/              # Б2: news, documents
-  migrations/               # один линейный Alembic head
-  tests/                    # предметные и сквозные тесты
+app/config.py                      окружение
+app/db.py                          SQLAlchemy Session
+app/main.py                        middleware и роутеры
+app/modules/identity/             Б1: auth, users, profiles
+app/modules/competitions/         Б1: соревнования и заявки
+app/modules/results/              Б2: результаты и рейтинг
+app/modules/content/              Б2: новости и документы
+migrations/                       единая цепочка Alembic
+tests/                            проверки auth
 ```
 
-Папки модулей зарезервированы для владельцев. Б1 добавляет исполняемый каркас и миграции, Б2 добавляет свои роутеры и сервисы. Внешние маршруты и схемы заданы в `../contracts/openapi.json`; внутренние порты — в `../docs/contract-rules.md`.
+Для локального Python-запуска без Docker нужна работающая PostgreSQL и `../tools/init_env.py`. Из этой папки: `.venv/bin/pip install -e '.[dev]'`, `.venv/bin/alembic upgrade head`, `.venv/bin/uvicorn app.main:app --reload`. У `app.seed` только CLI для организатора; публичного эндпоинта выдачи этой роли нет.
+
+При добавлении новых моделей импортируйте их в `migrations/env.py`, чтобы Alembic видел метаданные. Б2 использует `CompetitionPort` и `IdentityPort` из модулей Б1, не пишет в их ORM-таблицы напрямую. Для защищённого маршрута: `Depends(get_current_principal)` или `Depends(require_role("organizer"))`.
