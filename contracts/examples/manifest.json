@@ -1,0 +1,11 @@
+{
+  "auth-me.json": "User",
+  "competition.json": "Competition",
+  "profile.json": "Profile",
+  "registration.json": "Registration",
+  "participants.json": "ParticipantPage",
+  "result-draft.json": "ResultDraft",
+  "result.json": "Result",
+  "rating.json": "Rating",
+  "error.json": "Error"
+}
