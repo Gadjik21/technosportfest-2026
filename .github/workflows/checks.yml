@@ -35,3 +35,18 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: make up
+      - run: curl --fail-with-body --silent --show-error http://localhost:8080/health
+      - run: curl --fail-with-body --silent --show-error http://localhost:8080/api/v1/disciplines
+      - run: curl --fail-with-body --silent --show-error http://localhost:8080/ -o /dev/null
+      - if: always()
+        run: docker compose logs --tail=100 && make down

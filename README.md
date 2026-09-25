@@ -11,30 +11,29 @@
 
 ## Запуск локально
 
-Нужны Docker с работающим daemon, Python 3.10+ для создания локального `.env` и Node 22.12+ для фронтенда.
+Нужны запущенный Docker Desktop (с Docker Compose), `make` и Python 3.10+. Node отдельно устанавливать не нужно: фронтенд собирается внутри Docker. Из корня репозитория:
 
 ```bash
-python3 tools/init_env.py
-docker compose up --build
+make up
 ```
 
-Сайт: `http://localhost:8080`. API: `http://localhost:8000/health` и `http://localhost:8000/docs`. Swagger показывает реализованные маршруты, полный согласованный контракт лежит в `contracts/openapi.json`. Локальная PostgreSQL доступна на `localhost:5433`. При старте API применяет `alembic upgrade head`. Nginx отдаёт SPA и проксирует `/api/v1` в FastAPI; JWT остаётся в `HttpOnly` cookie.
+Команда создаёт локальный `backend/.env`, собирает и запускает PostgreSQL, FastAPI и Nginx с фронтендом, ждёт проверки готовности сервисов. Сайт: `http://localhost:8080`. API: `http://localhost:8000/health` и `http://localhost:8000/docs`. Swagger показывает реализованные маршруты, полный согласованный контракт лежит в `contracts/openapi.json`. Локальная PostgreSQL доступна на `localhost:5433`. При старте API применяет `alembic upgrade head`. Nginx отдаёт SPA и проксирует `/api/v1` в FastAPI; JWT остаётся в `HttpOnly` cookie.
 
-В другом терминале:
+Основные команды:
 
 ```bash
-cd frontend
-npm ci
-npm run dev
+make organizer EMAIL=you@example.com  # создать организатора, пароль вводится интерактивно
+make logs                             # смотреть логи; Ctrl+C завершает просмотр
+make down                             # остановить сервисы, данные PostgreSQL сохранятся
 ```
 
-В режиме разработки фронтенд открывается на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Для демонстрационной учётной записи организатора:
+Публичная регистрация создаёт только спортсмена. `make down` сохраняет данные в Docker volume, повторный `make up` их не сбрасывает. Для отдельной разработки фронтенда при работающем `make up`:
 
 ```bash
-docker compose exec api python -m app.seed --email organizer@example.com
+cd frontend && npm ci && npm run dev
 ```
 
-Команда запросит пароль; пароль не хранится в репозитории. Публичная регистрация создаёт только спортсмена. В production задайте свой `JWT_SECRET`, `APP_ORIGINS` и `COOKIE_SECURE=true`; локальный `.env` игнорируется Git.
+Vite откроется на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Пароль организатора не хранится в репозитории. В production задайте свой `JWT_SECRET`, `APP_ORIGINS` и `COOKIE_SECURE=true`; локальный `.env` игнорируется Git.
 
 ## Проверки
 
