@@ -838,6 +838,29 @@ legend {
   margin:70px auto;
   text-align:center
 }
+.modal-backdrop {
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:grid;
+  place-items:center;
+  padding:20px;
+  background:#141625aa
+}
+.confirm-dialog {
+  width:min(100%,440px);
+  padding:28px
+}
+.confirm-dialog h2 {
+  margin-bottom:12px
+}
+.confirm-dialog p {
+  color:#6f7587
+}
+.confirm-dialog .form-actions {
+  justify-content:flex-end;
+  margin-top:25px
+}
 .access-card .button {
   margin-top:13px
 }
@@ -879,7 +902,7 @@ legend {
   .header-inner {
     min-height:64px
   }
-  .desktop-nav,.header-logout,.site-footer {
+  .desktop-nav,.site-footer {
     display:none
   }
   .header-actions {

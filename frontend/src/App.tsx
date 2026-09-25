@@ -40,7 +40,7 @@ export function App() {
   if (user === undefined && (protectedAthlete || protectedOrganizer)) content = <Empty>Проверяем вход…</Empty>;
   else if (protectedAthlete && user?.role !== "athlete" || protectedOrganizer && user?.role !== "organizer") content = <div className="card access-card"><h1>Доступ закрыт</h1><p>Войдите в аккаунт с нужной ролью.</p><Link className="button" to="/login">Войти</Link></div>;
   else if (path === "/") content = <Home />;
-  else if (path === "/login" || path === "/register") content = <AuthPage mode={path === "/login" ? "login" : "register"} onAuth={value => { setUser(value); setAuthError(""); }} />;
+  else if (path === "/login" || path === "/register") content = <AuthPage key={path} mode={path === "/login" ? "login" : "register"} onAuth={value => { setUser(value); setAuthError(""); }} />;
   else if (path === "/competitions") content = <Competitions />;
   else if (competitionId) content = <CompetitionDetail id={competitionId} user={user ?? null} />;
   else if (path === "/ratings") content = <Ratings />;
@@ -62,6 +62,6 @@ export function App() {
     <div className={`layout ${user && (protectedAthlete || protectedOrganizer) ? "layout-with-sidebar" : ""}`}>
       {user && (protectedAthlete || protectedOrganizer) && <aside className="sidebar"><div className="sidebar-heading">{user.role === "organizer" ? "ОРГАНИЗАТОР" : "СПОРТСМЕН"}</div><nav aria-label="Личный кабинет"><Nav path={path} items={user.role === "organizer" ? organizerNav : athleteNav} /></nav><div className="sidebar-foot">{user.email}</div></aside>}
       <main className="content" id="main"><Notice error={authError} />{content}</main>
-    </div><nav className="mobile-nav" aria-label="Мобильная навигация"><Link to="/competitions">Соревнования</Link><Link to="/ratings">Рейтинг</Link><Link to="/news">Новости</Link><Link to={user?.role === "organizer" ? "/manage/competitions" : user ? "/cabinet" : "/login"}>Кабинет</Link></nav>
+    </div><nav className="mobile-nav" aria-label="Мобильная навигация">{user?.role === "organizer" ? <><Link to="/manage/competitions">Соревнования</Link><Link to="/manage/news">Новости</Link><Link to="/manage/documents">Документы</Link><Link to="/ratings">Рейтинг</Link></> : <><Link to="/competitions">Соревнования</Link><Link to="/ratings">Рейтинг</Link><Link to="/news">Новости</Link><Link to="/documents">Документы</Link><Link to={user ? "/cabinet" : "/login"}>Кабинет</Link></>}</nav>
     <footer className="site-footer"><span>© ТехноСпортФест 2026</span><span>Спортивное программирование · Республика Дагестан</span></footer></div>;
 }

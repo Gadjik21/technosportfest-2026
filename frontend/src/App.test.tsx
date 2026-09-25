@@ -18,6 +18,38 @@ beforeEach(() => { window.history.replaceState({}, "", "/"); vi.stubGlobal("scro
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("основной путь MVP", () => {
+  it("очищает ошибку входа при переходе к регистрации", async () => {
+    window.history.replaceState({}, "", "/login");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => url.endsWith("/auth/me")
+      ? json({ code: "UNAUTHENTICATED", message: "Войдите" }, 401)
+      : json({ code: "INVALID_CREDENTIALS", message: "Неверный email или пароль." }, 401)));
+    const user = userEvent.setup(); render(<App />);
+    await user.type(screen.getByLabelText("Email"), "absent@example.com");
+    await user.type(screen.getByLabelText("Пароль"), "wrong-password-123");
+    await user.click(screen.getByRole("button", { name: "Войти" }));
+    expect(await screen.findByText("Неверный email или пароль.")).toBeTruthy();
+    await user.click(screen.getByRole("link", { name: "Зарегистрироваться" }));
+    expect(screen.getByRole("heading", { name: "Создать аккаунт" })).toBeTruthy();
+    expect(screen.queryByText("Неверный email или пароль.")).toBeNull();
+  });
+
+  it("возвращает спортсмена к соревнованию после входа", async () => {
+    window.history.replaceState({}, "", "/login?next=%2Fcompetitions%2Fc1");
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.endsWith("/auth/me")) return json({ code: "UNAUTHENTICATED", message: "Войдите" }, 401);
+      if (url.endsWith("/auth/login")) return json(athlete);
+      if (url.endsWith("/competitions/c1")) return json(competition);
+      if (url.endsWith("/competitions/c1/results?page=1")) return json(page([]));
+      throw new Error(`Unexpected ${url}`);
+    }));
+    const user = userEvent.setup(); render(<App />);
+    await user.type(screen.getByLabelText("Email"), "athlete@example.com");
+    await user.type(screen.getByLabelText("Пароль"), "long-demo-password");
+    await user.click(screen.getByRole("button", { name: "Войти" }));
+    expect(await screen.findByRole("button", { name: "Подать заявку" })).toBeTruthy();
+    expect(window.location.pathname).toBe("/competitions/c1");
+  });
+
   it("не открывает кабинет спортсмена без входа", async () => {
     window.history.replaceState({}, "", "/cabinet");
     const fetchMock = vi.fn(async (_url: string) => json({ code: "UNAUTHENTICATED", message: "Войдите" }, 401));
@@ -73,7 +105,6 @@ describe("основной путь MVP", () => {
       if (path.startsWith("/competitions/c1/results")) return json(page(published ? [{ id: "res1", registrationId: "r1", competitionId: "c1", athleteId: "a1", fullName: "Амина Алиева", place: 1, scoreText: "4 задачи", points: 100, publishedAt: "2026-10-20T18:00:00Z" }] : []));
       throw new Error(`Unexpected ${method} ${path}`);
     }));
-    vi.stubGlobal("confirm", vi.fn(() => true));
     window.history.replaceState({}, "", "/manage/competitions/c1");
     const user = userEvent.setup(); render(<App />);
     const place = await screen.findByLabelText("Место: Амина Алиева");
@@ -85,6 +116,7 @@ describe("основной путь MVP", () => {
     expect(saveCall?.body).toEqual({ place: 1, scoreText: "4 задачи" });
     await waitFor(() => expect(screen.getByText(/Сохранено черновиков: 1/)).toBeTruthy());
     await user.click(screen.getByRole("button", { name: "Опубликовать результаты" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Опубликовать результаты?" })).getByRole("button", { name: "Опубликовать" }));
     await waitFor(() => expect(published).toBe(true));
     expect(calls).toContainEqual({ path: "/competitions/c1/results/publish", method: "POST", body: undefined });
     expect(await screen.findByText("100")).toBeTruthy();

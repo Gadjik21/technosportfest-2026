@@ -65,6 +65,15 @@ export function Empty({ children }: { children: ReactNode }) {
   return <div className="card empty">{children}</div>;
 }
 
+export function ConfirmDialog({ title, children, confirmLabel, onCancel, onConfirm }: { title: string; children: ReactNode; confirmLabel: string; onCancel: () => void; onConfirm: () => void }) {
+  return <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onCancel(); }}>
+    <div className="card confirm-dialog" role="dialog" aria-modal="true" aria-label={title}>
+      <h2>{title}</h2><p>{children}</p>
+      <div className="form-actions"><button className="button button-secondary" onClick={onCancel}>Отмена</button><button className="button" onClick={onConfirm}>{confirmLabel}</button></div>
+    </div>
+  </div>;
+}
+
 export function Pager({ page, total, pageSize, onChange }: { page: number; total: number; pageSize: number; onChange: (page: number) => void }) {
   if (total <= pageSize) return null;
   return <div className="pager"><button disabled={page <= 1} onClick={() => onChange(page - 1)}>← Назад</button><span>Страница {page} из {Math.ceil(total / pageSize)}</span><button disabled={page * pageSize >= total} onClick={() => onChange(page + 1)}>Далее →</button></div>;
