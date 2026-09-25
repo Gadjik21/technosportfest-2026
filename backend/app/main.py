@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.errors import install_error_handlers
 from app.modules.competitions.router import router as competitions_router
 from app.modules.content.router import router as content_router
+from app.modules.identity.profile import router as profile_router
 from app.modules.identity.router import router as auth_router
 from app.modules.identity.security import COOKIE_NAME, decode_token
 from app.modules.results.router import router as results_router
@@ -32,6 +33,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router, prefix="/api/v1")
+    app.include_router(profile_router, prefix="/api/v1")
     app.include_router(competitions_router, prefix="/api/v1")
     app.include_router(results_router, prefix="/api/v1")
     app.include_router(content_router, prefix="/api/v1")
