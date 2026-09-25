@@ -1,6 +1,6 @@
 # ТехноСпортФест 2026
 
-Монорепозиторий для фронтенда и двух бэкендеров. Сейчас запускаются каркас FastAPI, авторизация, первая миграция и React/Vite. Предметные маршруты соревнований, результатов и контента остаются задачами v1/v2; их формы уже зафиксированы в OpenAPI.
+Монорепозиторий FastAPI и React/Vite. Реализованы авторизация, результаты, рейтинг, новости, документы и фронтенд MVP. Маршруты соревнований и профиля ещё реализует Б1; до их подключения сквозной сценарий на реальной БД недоступен. Формы всех API зафиксированы в OpenAPI.
 
 ## Стек и договорённости
 
@@ -18,7 +18,7 @@ python3 tools/init_env.py
 docker compose up --build
 ```
 
-API: `http://localhost:8000/health` и `http://localhost:8000/docs`. Swagger сейчас показывает только реализованные auth-маршруты; полный согласованный контракт лежит в `contracts/openapi.json`. Локальная PostgreSQL доступна на `localhost:5433`. При старте API применяет `alembic upgrade head`.
+Сайт: `http://localhost:8080`. API: `http://localhost:8000/health` и `http://localhost:8000/docs`. Swagger показывает реализованные маршруты, полный согласованный контракт лежит в `contracts/openapi.json`. Локальная PostgreSQL доступна на `localhost:5433`. При старте API применяет `alembic upgrade head`. Nginx отдаёт SPA и проксирует `/api/v1` в FastAPI; JWT остаётся в `HttpOnly` cookie.
 
 В другом терминале:
 
@@ -28,7 +28,7 @@ npm ci
 npm run dev
 ```
 
-Фронтенд открывается на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Для демонстрационной учётной записи организатора:
+В режиме разработки фронтенд открывается на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Для демонстрационной учётной записи организатора:
 
 ```bash
 docker compose exec api python -m app.seed --email organizer@example.com
@@ -41,10 +41,10 @@ docker compose exec api python -m app.seed --email organizer@example.com
 ```bash
 python3 tools/check_contract.py
 cd backend && .venv/bin/python -m pytest -q
-cd ../frontend && npm run build
+cd ../frontend && npm test && npm run build
 ```
 
-Установите зависимости бэкенда через `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`, если запускаете тесты без Docker. Команды Alembic выполняются из `backend/`: `.venv/bin/alembic upgrade head`, `.venv/bin/alembic revision --autogenerate -m "описание"`. Миграции в общей ветке должны сохранять один линейный head.
+Установите зависимости бэкенда через `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`, если запускаете тесты без Docker. Команды Alembic выполняются из `backend/`: `.venv/bin/alembic upgrade head`, `.venv/bin/alembic revision --autogenerate -m "описание"`. Миграции в общей ветке должны сохранять один линейный head. Тесты фронтенда проверяют вход, заявку, черновик и публикацию с подменённым API; сквозной браузерный тест на настоящем PostgreSQL запускаем после подключения модуля Б1.
 
 ## Кто меняет что
 

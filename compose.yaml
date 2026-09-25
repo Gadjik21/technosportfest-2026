@@ -20,12 +20,22 @@ services:
     env_file: ./backend/.env
     environment:
       DATABASE_URL: postgresql+psycopg://tsf:tsf@db:5432/tsf
+      APP_ORIGINS: http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://localhost:8080,http://127.0.0.1:8080
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
     command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+  web:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8080:80"
 
 volumes:
   postgres_data:
