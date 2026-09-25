@@ -5,7 +5,9 @@ from sqlalchemy import engine_from_config, pool
 
 from app.config import get_settings
 from app.db import Base
+from app.modules.content import models as content_models  # noqa: F401: registers metadata
 from app.modules.identity import models  # noqa: F401: registers metadata
+from app.modules.results import models as results_models  # noqa: F401: registers metadata
 
 config = context.config
 if config.config_file_name is not None:
