@@ -43,7 +43,7 @@ cd backend && .venv/bin/python -m pytest -q
 cd ../frontend && npm test && npm run build
 ```
 
-Установите зависимости бэкенда через `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`, если запускаете тесты без Docker. Команды Alembic выполняются из `backend/`: `.venv/bin/alembic upgrade head`, `.venv/bin/alembic revision --autogenerate -m "описание"`. Миграции в общей ветке должны сохранять один линейный head. Тесты фронтенда проверяют вход, заявку, черновик и публикацию с подменённым API; тест Б1 проверяет интеграцию с настоящим `CompetitionPort`. Отдельный прогон с PostgreSQL и контейнерным Nginx нужен перед развёртыванием.
+Установите зависимости бэкенда через `cd backend && python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'`, если запускаете тесты без Docker. Команды Alembic выполняются из `backend/`: `.venv/bin/alembic upgrade head`, `.venv/bin/alembic revision --autogenerate -m "описание"`. Миграции в общей ветке должны сохранять один линейный head. Тесты фронтенда проверяют вход, заявку, черновик и публикацию с подменённым API; тест Б1 проверяет интеграцию с настоящим `CompetitionPort`. CI запускает `make up` с PostgreSQL и Nginx и проверяет `/health`, `/api/v1/disciplines` и главную страницу. Полный ручной сценарий через контейнерный стек перед развёртыванием ещё нужен.
 
 ## Кто меняет что
 
