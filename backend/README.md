@@ -1,19 +1,40 @@
 # Бэкенд
 
-Каркас включает FastAPI, регистрацию спортсмена, вход, выход, `/auth/me`, JWT/Origin middleware, Pydantic-ошибки, SQLAlchemy Session и миграцию `0001_auth`. Предметные роутеры подключены в `app/main.py`, но пока пусты. Канонический внешний контракт — `../contracts/openapi.json`.
+FastAPI + PostgreSQL (Alembic). Реализованы авторизация (JWT/Origin), профиль спортсмена, дисциплины, соревнования с заявками, участники; модули Results/Rating и Content (Б2) подключены и работают через порты `CompetitionPort`/`IdentityPort`. Канонический внешний контракт — `../contracts/openapi.json`.
 
 ```text
 app/config.py                      окружение
 app/db.py                          SQLAlchemy Session
 app/main.py                        middleware и роутеры
-app/modules/identity/             Б1: auth, users, profiles
-app/modules/competitions/         Б1: соревнования и заявки
+app/modules/identity/             Б1: auth, users, profiles (включая /me)
+app/modules/competitions/         Б1: дисциплины, соревнования, заявки, CompetitionPort
 app/modules/results/              Б2: результаты и рейтинг
 app/modules/content/              Б2: новости и документы
-migrations/                       единая цепочка Alembic
-tests/                            проверки auth
+migrations/                       единая цепочка Alembic (head: 0004_competitions)
+tests/                            auth, competitions/results/content
 ```
 
-Для локального Python-запуска без Docker нужна работающая PostgreSQL и `../tools/init_env.py`. Из этой папки: `.venv/bin/pip install -e '.[dev]'`, `.venv/bin/alembic upgrade head`, `.venv/bin/uvicorn app.main:app --reload`. У `app.seed` только CLI для организатора; публичного эндпоинта выдачи этой роли нет.
+Для локального Python-запуска без Docker нужна работающая PostgreSQL и `../tools/init_env.py`. Из этой папки: `.venv/bin/pip install -e '.[dev]'`, `.venv/bin/alembic upgrade head`, `.venv/bin/uvicorn app.main:app --reload`.
 
-При добавлении новых моделей импортируйте их в `migrations/env.py`, чтобы Alembic видел метаданные. Б2 использует `CompetitionPort` и `IdentityPort` из модулей Б1, не пишет в их ORM-таблицы напрямую. Для защищённого маршрута: `Depends(get_current_principal)` или `Depends(require_role("organizer"))`.
+Seed-данные (`python -m app.seed`):
+
+```bash
+python -m app.seed --email organizer@example.com   # организатор (+ справочник дисциплин)
+python -m app.seed --demo                          # вымышленные спортсмены, соревнование, заявки
+```
+
+Пароль организатора запрашивается интерактивно и не хранится в репозитории; демо-спортсмены используют общий пароль `demo-password-123`. Публичного эндпоинта выдачи роли организатора нет.
+
+## Реализовано Б1
+
+- `GET /disciplines` — справочник дисциплин.
+- `POST /competitions` (organizer) → черновик; `PATCH /competitions/{id}` (только draft); `POST /competitions/{id}/publish` (draft → published, дедлайн в будущем).
+- `GET /competitions` — каталог: публично `published`/`completed`; `status=draft` только для организатора, остальным 403. Сортировка `startsAt,id`.
+- `GET /competitions/{id}` — карточка: draft виден только организатору (остальным 404); `registrationOpen` и `viewerRegistrationId` для спортсмена.
+- `POST /competitions/{id}/registrations` (athlete): соревнование `published`, `now < registrationDeadline`; повторная заявка — `409 ALREADY_REGISTERED`.
+- `GET /me/registrations` — мои заявки; `GET /competitions/{id}/participants` — участники организатору (сортировка `fullName,registrationId`).
+- `GET/PATCH /me` — профиль спортсмена: ФИО, образование, населённый пункт, дисциплины.
+
+`CompetitionPort` (см. `app/modules/competitions/ports.py`) реализован в `app/modules/competitions/adapter.py`: `lock_for_result_publication` делает `SELECT ... FOR UPDATE` и проверяет `status=published`; `complete_competition` завершает соревнование в той же транзакции; чтения без N+1. Results/Б2 подключён к реальному адаптеру через `app/modules/results/deps.py`.
+
+При добавлении новых моделей импортируйте их в `migrations/env.py`, чтобы Alembic видел метаданные. Для защищённого маршрута: `Depends(get_current_principal)` или `Depends(require_role("organizer"))`.
