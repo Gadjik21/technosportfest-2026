@@ -13,6 +13,7 @@ import argparse
 import getpass
 from datetime import datetime, timedelta, timezone
 
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -44,10 +45,14 @@ def seed_disciplines(db) -> None:
 
 
 def seed_organizer(db, email: str) -> None:
+    try:
+        normalized_email = str(TypeAdapter(EmailStr).validate_python(email.strip())).lower()
+    except ValidationError:
+        raise SystemExit("A valid organizer email is required")
     password = getpass.getpass("Organizer password (12+ characters): ")
     if len(password) < 12:
         raise SystemExit("Password must contain at least 12 characters")
-    db.add(User(email=email.strip().lower(), password_hash=password_hash.hash(password), role="organizer"))
+    db.add(User(email=normalized_email, password_hash=password_hash.hash(password), role="organizer"))
     try:
         db.commit()
     except IntegrityError:

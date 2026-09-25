@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass
 from uuid import UUID, uuid4
 
+import pytest
+
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite://")
 os.environ.setdefault("JWT_SECRET", "test-only-secret-with-at-least-32-characters")
 
@@ -226,3 +228,73 @@ def test_draft_rejected_after_competition_completed():
     retry = client.put(f"/api/v1/competitions/{competition_id}/results/{late_registration}", json={"place": 4}, headers=ORIGIN)
     assert retry.status_code == 409
     assert retry.json()["code"] == "INVALID_STATE"
+
+
+def test_publication_rolls_back_results_if_competition_completion_fails():
+    client, fake_port = client_with_fake_port()
+    competition_id, registration_id = uuid4(), uuid4()
+    athlete_id = _register_athlete(client, "rollback@example.com", "Тест Отката")
+    fake_port.add_competition(competition_id, status="published")
+    fake_port.add_registration(registration_id, competition_id, athlete_id)
+    client.cookies.clear()
+    _login_as_organizer(client)
+    created = client.put(
+        f"/api/v1/competitions/{competition_id}/results/{registration_id}",
+        json={"place": 1}, headers=ORIGIN,
+    )
+    assert created.status_code == 200
+
+    def fail_completion(_competition_id, _db):
+        raise RuntimeError("competition update failed")
+
+    fake_port.complete_competition = fail_completion
+    with pytest.raises(RuntimeError, match="competition update failed"):
+        client.post(f"/api/v1/competitions/{competition_id}/results/publish", headers=ORIGIN)
+
+    assert client.get(f"/api/v1/competitions/{competition_id}/results").json()["items"] == []
+    assert client.get("/api/v1/ratings").json()["items"] == []
+    drafts = client.get(f"/api/v1/competitions/{competition_id}/results/drafts").json()["items"]
+    assert len(drafts) == 1 and drafts[0]["status"] == "draft"
+
+
+def test_rating_filters_by_discipline_and_my_rating_uses_published_only():
+    from app.modules.identity.security import COOKIE_NAME, create_token
+
+    client, fake_port = client_with_fake_port()
+    athlete_id = _register_athlete(client, "rating@example.com", "Амина Алиева")
+    other_id = _register_athlete(client, "other-rating@example.com", "Другой Спортсмен")
+    discipline_a, discipline_b = uuid4(), uuid4()
+    competition_a, competition_b = uuid4(), uuid4()
+    registration_a, registration_b, other_registration = uuid4(), uuid4(), uuid4()
+    fake_port.add_competition(competition_a, discipline_id=discipline_a)
+    fake_port.add_competition(competition_b, discipline_id=discipline_b)
+    fake_port.add_registration(registration_a, competition_a, athlete_id)
+    fake_port.add_registration(registration_b, competition_b, athlete_id)
+    fake_port.add_registration(other_registration, competition_a, other_id)
+    client.cookies.clear()
+    _login_as_organizer(client)
+
+    for competition_id, registration_id, place in [
+        (competition_a, registration_a, 1),
+        (competition_a, other_registration, 2),
+        (competition_b, registration_b, 3),
+    ]:
+        response = client.put(
+            f"/api/v1/competitions/{competition_id}/results/{registration_id}",
+            json={"place": place}, headers=ORIGIN,
+        )
+        assert response.status_code == 200
+    assert client.get("/api/v1/ratings").json()["total"] == 0
+    for competition_id in (competition_a, competition_b):
+        assert client.post(f"/api/v1/competitions/{competition_id}/results/publish", headers=ORIGIN).status_code == 200
+
+    all_rows = client.get("/api/v1/ratings").json()["items"]
+    assert {row["athleteId"]: row["points"] for row in all_rows}[str(athlete_id)] == 150
+    filtered = client.get("/api/v1/ratings", params={"disciplineId": str(discipline_a)}).json()["items"]
+    assert {row["athleteId"]: row["points"] for row in filtered} == {str(athlete_id): 100, str(other_id): 70}
+
+    client.cookies.clear()
+    client.cookies.set(COOKIE_NAME, create_token(athlete_id, "athlete"), path="/api/v1")
+    mine = client.get("/api/v1/me/rating", params={"disciplineId": str(discipline_b)}).json()
+    assert mine["points"] == 50 and mine["rank"] == 1 and mine["resultsCount"] == 1
+    assert client.get("/api/v1/me/results").json()["total"] == 2

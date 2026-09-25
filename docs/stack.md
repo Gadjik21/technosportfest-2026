@@ -12,7 +12,7 @@
 | Вход | PyJWT 2.15.0 + pwdlib 0.3.1/Argon2 | Короткий JWT в cookie; пароли хранятся только как хеш. Роли проверяются через FastAPI dependency. |
 | Проверки | pytest + httpx | Тесты auth и HTTP-контракта. |
 | Фронтенд | React 19.3, TypeScript 5.9, Vite 8.3 | Простой SPA-старт. TypeScript 5.9 закреплён из-за совместимости с генератором типов. |
-| API-клиент | openapi-typescript 7.13 + openapi-fetch 0.17 | Типы и пути генерируются из общего `contracts/openapi.json`. |
+| API-клиент | openapi-typescript 7.13 + типизированный `fetch` | Формы данных генерируются из общего `contracts/openapi.json`; обработка ошибок API и cookie сосредоточена в одном файле. |
 | Инфраструктура | PostgreSQL 17, Docker Compose | Одна БД, запуск одной командой; Redis и брокер для MVP не нужны. |
 
 Используем синхронные SQLAlchemy Session и psycopg: все записи результатов и смена статуса соревнования идут в одной транзакции. Auth middleware проверяет JWT и `Origin`; `require_role(...)` в маршрутах проверяет роль. Библиотеки вроде готового `fastapi-users` не добавляем: у нас две роли и четыре auth-маршрута.
