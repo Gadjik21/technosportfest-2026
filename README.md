@@ -35,6 +35,45 @@ cd frontend && npm ci && npm run dev
 
 Vite откроется на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Пароль организатора не хранится в репозитории. В production задайте свой `JWT_SECRET`, `APP_ORIGINS` и `COOKIE_SECURE=true`; локальный `.env` игнорируется Git.
 
+## Деплой и CD
+
+Продакшен живёт на сервере **Beget VPS** (`http://90.156.169.166`) и поднимается Docker Compose: базовый [`compose.yaml`](compose.yaml) + продовый оверлей [`compose.prod.yaml`](compose.prod.yaml). Оверлей открывает порт `80` наружу, держит API и PostgreSQL внутри docker-сети и задаёт продовые переменные (JWT-секрет, `APP_ORIGINS`).
+
+**Как работает CD:** каждый push в `main` прогоняет проверки (контракт, тесты бэкенда, тесты фронтенда, smoke-тест). После зелёных проверок джоба `deploy` из [`.github/workflows/checks.yml`](.github/workflows/checks.yml) синхронизирует файлы репозитория на сервер по `rsync` (через SSH-ключ `DEPLOY_KEY`) и пересобирает контейнеры (`docker compose up -d --build`). Серверу не нужен собственный доступ к GitHub: код ему присылает сам воркфлоу. Миграции Alembic применяются автоматически при старте API. Локально ничего запускать не нужно.
+
+Ссылки на сервере:
+
+- Сайт: http://90.156.169.166
+- Health-проверка: http://90.156.169.166/health
+- API: http://90.156.169.166/api/v1/
+
+### Секреты GitHub (Settings → Secrets and variables → Actions)
+
+| Тип | Имя | Значение |
+|---|---|---|
+| Variable | `DEPLOY_HOST` | `90.156.169.166` |
+| Variable | `DEPLOY_USER` | `root` |
+| Secret | `DEPLOY_KEY` | приватный SSH-ключ (публичная часть прописана в `~/.ssh/authorized_keys` на сервере) |
+
+Ручной деплой без пуша: вкладка **Actions** → **Checks** → **Run workflow**.
+
+### Первичная настройка сервера (выполняется один раз)
+
+Код на сервер доставляет `rsync` из GitHub Actions, поэтому серверу достаточно Docker, rsync и пустой директории `/opt/tsf`.
+
+```bash
+# на сервере от root:
+apt-get update && apt-get install -y curl git rsync
+curl -fsSL https://get.docker.com | sh && systemctl enable --now docker
+mkdir -p /opt/tsf
+```
+
+Дальше публичный ключ SSH (от `DEPLOY_KEY`) прописывается в `/root/.ssh/authorized_keys`, после чего воркфлоу сам кладёт файлы в `/opt/tsf` и пересобирает стек (`backend/.env` на сервере не перезаписывается — он исключён из синхронизации).
+
+Дальше обновления приходят сами через `git pull` в джобе `deploy`.
+
+> ⚠️ Пока это dev-окружение: `JWT_SECRET` временно лежит в [`compose.prod.yaml`](compose.prod.yaml), HTTPS не настроен (`COOKIE_SECURE=false`). Перед реальным запуском фестиваля секрет нужно вынести в GitHub Secret, сменить пароль `root` на сервере и добавить HTTPS.
+
 ## Проверки
 
 ```bash

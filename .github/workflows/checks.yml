@@ -3,6 +3,11 @@ name: Checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   contract-and-backend:
@@ -50,3 +55,40 @@ jobs:
       - run: curl --fail-with-body --silent --show-error http://localhost:8080/ -o /dev/null
       - if: always()
         run: docker compose logs --tail=100 && make down
+
+  deploy:
+    needs: [contract-and-backend, frontend, compose-smoke]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Синхронизация файлов на сервер (rsync)
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'dist' \
+            --exclude 'backend/.env' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new" \
+            ./ ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}:/opt/tsf/
+      - name: Пересборка контейнеров на сервере
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ vars.DEPLOY_HOST }}
+          username: ${{ vars.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /opt/tsf
+            touch backend/.env
+            docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+            docker image prune -f
+      - name: Проверка прода
+        run: curl --fail-with-body --silent --show-error http://${{ vars.DEPLOY_HOST }}/health

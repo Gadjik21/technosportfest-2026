@@ -1,0 +1,33 @@
+# Продакшен-оверлей поверх compose.yaml для сервера (Beget VPS).
+# Локально НЕ используется: make up продолжает работать как раньше.
+#
+# Запуск на сервере:
+#   docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+#
+# Что меняет относительно compose.yaml:
+#   - web открывает порт 80 наружу (в базовом файле порты замкнуты на 127.0.0.1);
+#   - api и db остаются внутри docker-сети, наружу не торчат;
+#   - продовые переменные API задаются напрямую здесь (environment перекрывает env_file);
+#   - все сервисы автоматически поднимаются после ребута сервера.
+
+services:
+  api:
+    environment:
+      APP_ORIGINS: http://90.156.169.166
+      # Без HTTPS secure-cookie не работает, поэтому false.
+      COOKIE_SECURE: "false"
+      # Временный продовый секрет (пока договорились хранить в коде).
+      # Перед реальным запуском фестиваля заменить на случайный.
+      JWT_SECRET: 7ca64c47471bff2a03e36e1dd8ec6fea851bb6e72fad4827
+    restart: unless-stopped
+
+  web:
+    ports:
+      - "0.0.0.0:80:80"
+    restart: unless-stopped
+
+  db:
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
