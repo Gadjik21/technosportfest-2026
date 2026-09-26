@@ -75,6 +75,7 @@ jobs:
             --exclude 'node_modules' \
             --exclude 'dist' \
             --exclude 'backend/.env' \
+            --exclude '.env.judge' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new" \
             ./ ${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}:/opt/tsf/
       - name: Пересборка контейнеров на сервере

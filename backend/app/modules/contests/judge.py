@@ -31,10 +31,6 @@ LANGUAGES: dict[str, Language] = {
     "python": Language("main.py", "python:3.12-slim", None, ("python", "/work/main.py")),
     "javascript": Language("main.js", "node:22-slim", None, ("node", "/work/main.js")),
     "go": Language("main.go", "golang:1.25-bookworm", ("go", "build", "-o", "/work/program", "/work/main.go"), ("/work/program",)),
-    "java": Language("Main.java", "eclipse-temurin:21-jdk", ("javac", "-d", "/work", "/work/Main.java"), ("java", "-Xmx{heap}m", "-cp", "/work", "Main")),
-    "kotlin": Language("Main.kt", "tsf-judge-kotlin:2.4.20", ("kotlinc", "/work/Main.kt", "-include-runtime", "-d", "/work/program.jar"), ("java", "-Xmx{heap}m", "-jar", "/work/program.jar")),
-    "cpp": Language("main.cpp", "gcc:14", ("g++", "-O2", "-std=c++20", "-o", "/work/program", "/work/main.cpp"), ("/work/program",)),
-    "rust": Language("main.rs", "rust:1.90-slim", ("rustc", "-O", "-o", "/work/program", "/work/main.rs"), ("/work/program",)),
 }
 
 OUTPUT_LIMIT = 64 * 1024

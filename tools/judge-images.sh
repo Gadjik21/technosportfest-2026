@@ -16,9 +16,6 @@ if [ "$(docker info --format '{{.CgroupVersion}} {{.CgroupDriver}}')" != '2 syst
   exit 1
 fi
 
-for image in python:3.12-slim node:22-slim golang:1.25-bookworm eclipse-temurin:21-jdk gcc:14 rust:1.90-slim; do
+for image in python:3.12-slim node:22-slim golang:1.25-bookworm; do
   docker pull "$image"
 done
-
-repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-docker build -f "$repo_root/backend/judge-kotlin.Dockerfile" -t tsf-judge-kotlin:2.4.20 "$repo_root/backend"

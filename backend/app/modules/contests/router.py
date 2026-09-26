@@ -90,7 +90,7 @@ class SubmissionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["text", "link", "code"]
     content: str = Field(min_length=1, max_length=10000)
-    language: Literal["python", "javascript", "go", "java", "kotlin", "cpp", "rust"] | None = None
+    language: Literal["python", "javascript", "go"] | None = None
 
 
 class TestResultResponse(BaseModel):

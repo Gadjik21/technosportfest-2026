@@ -3887,11 +3887,7 @@
             "enum": [
               "python",
               "javascript",
-              "go",
-              "java",
-              "kotlin",
-              "cpp",
-              "rust"
+              "go"
             ],
             "nullable": true
           }

@@ -1098,7 +1098,7 @@ export interface components {
             kind: "text" | "link" | "code";
             content: string;
             /** @enum {string|null} */
-            language?: "python" | "javascript" | "go" | "java" | "kotlin" | "cpp" | "rust" | null;
+            language?: "python" | "javascript" | "go" | null;
         };
         Submission: {
             /** Format: uuid */
