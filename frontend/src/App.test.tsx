@@ -14,6 +14,8 @@ const organizer = { id: "o1", email: "org@example.com", role: "organizer", permi
 const copywriter = { id: "o2", email: "copy@example.com", role: "Копирайтер", permissions: ["news.view", "news.create", "news.edit"], createdAt: "2026-09-01T10:00:00Z" };
 const page = <T,>(items: T[]) => ({ items, page: 1, pageSize: 100, total: items.length });
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
+// Извлекает путь API из абсолютного URL (api.ts строит запросы от window.location.origin).
+const apiPath = (url: string) => { const marker = "/api/v1"; return url.slice(url.indexOf(marker) + marker.length); };
 
 beforeEach(() => { window.history.replaceState({}, "", "/"); vi.stubGlobal("scrollTo", vi.fn()); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -58,14 +60,14 @@ describe("основной путь MVP", () => {
     render(<App />);
     expect(await screen.findByText("Доступ закрыт")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/v1/auth/me");
+    expect(apiPath(fetchMock.mock.calls[0]?.[0] ?? "")).toBe("/auth/me");
   });
 
   it("входит спортсменом, показывает кабинет и отправляет заявку", async () => {
     const calls: { path: string; method: string }[] = [];
     let loggedIn = false;
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      const path = url.replace("/api/v1", ""); const method = init?.method ?? "GET";
+      const path = apiPath(url); const method = init?.method ?? "GET";
       calls.push({ path, method });
       if (path === "/auth/me") return loggedIn ? json(athlete) : json({ code: "UNAUTHENTICATED", message: "Войдите" }, 401);
       if (path === "/auth/login") { loggedIn = true; return json(athlete); }
@@ -95,7 +97,7 @@ describe("основной путь MVP", () => {
     let saved = false; let published = false;
     const calls: { path: string; method: string; body?: unknown }[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      const path = url.replace("/api/v1", ""); const method = init?.method ?? "GET";
+      const path = apiPath(url); const method = init?.method ?? "GET";
       calls.push({ path, method, body: init?.body ? JSON.parse(String(init.body)) : undefined });
       if (path === "/auth/me") return json(organizer);
       if (path === "/competitions/c1") return json({ ...competition, status: published ? "completed" : "published" });
@@ -127,7 +129,7 @@ describe("основной путь MVP", () => {
 describe("динамические роли", () => {
   it("показывает только разрешённые разделы в меню организатора", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      const path = url.replace("/api/v1", ""); const method = init?.method ?? "GET";
+      const path = apiPath(url); const method = init?.method ?? "GET";
       if (path === "/auth/me") return json(copywriter);
       if (path.startsWith("/news")) return json(page([]));
       throw new Error(`Unexpected ${method} ${path}`);
@@ -148,7 +150,7 @@ describe("динамические роли", () => {
     const masterAdmin = { id: "a9", email: "admin@example.com", role: "master-admin", permissions: ["competitions.view", "news.view", "documents.view", "roles.manage", "users.manage"], createdAt: "2026-09-01T10:00:00Z" };
     const roles = [{ id: "r1", name: "Копирайтер", description: null, isSystem: false, permissions: ["news.create"], createdAt: "2026-09-01T10:00:00Z" }];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      const path = url.replace("/api/v1", ""); const method = init?.method ?? "GET";
+      const path = apiPath(url); const method = init?.method ?? "GET";
       if (path === "/auth/me") return json(masterAdmin);
       if (path === "/admin/roles") return json(roles);
       if (path === "/admin/permissions") return json([{ section: "news", label: "Новости", codes: ["news.view", "news.create"] }]);

@@ -28,8 +28,13 @@ export class ApiError extends Error {
   }
 }
 
+// Базовый URL API строим от origin, а не относительным путём: если страница открыта по адресу
+// вида http://user:pass@host/, браузер отклоняет относительные fetch-пути ошибкой
+// "Request cannot be constructed from a URL that includes credentials" (origin всегда без логина/пароля).
+const API_BASE = `${window.location.origin}/api/v1`;
+
 export async function request<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? "GET",
     headers: options.body === undefined ? undefined : { "Content-Type": "application/json" },
     credentials: "same-origin",
