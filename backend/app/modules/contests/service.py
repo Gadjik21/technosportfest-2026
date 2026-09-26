@@ -275,6 +275,6 @@ def finish_contest(db: Session, competition_port: CompetitionPort, competition_i
     for participant in ranked:
         place = sum(1 for other in ranked if totals.get(other.registration_id, 0) > totals.get(participant.registration_id, 0)) + 1
         results_service.upsert_draft(
-            db, competition_port, competition_id, participant.registration_id, place, f"{totals.get(participant.registration_id, 0)} из {max_total} по заданиям"
+            db, competition_port, competition_id, participant.registration_id, place, f"{totals.get(participant.registration_id, 0)}/{max_total} баллов по заданиям"
         )
     return results_service.publish_results(db, competition_port, competition_id)

@@ -6,11 +6,13 @@ import { AuthPage, CompetitionDetail, Competitions, Documents, Home, NewsDetail,
 import { Empty, Link, Notice, go, useRoute } from "./ui";
 
 const publicNav = [{ to: "/competitions", label: "Соревнования" }, { to: "/ratings", label: "Рейтинг" }, { to: "/news", label: "Новости" }, { to: "/documents", label: "Документы" }];
-const athleteNav = [{ to: "/cabinet", label: "Обзор" }, { to: "/cabinet/competitions", label: "Соревнования" }, { to: "/cabinet/results", label: "Мои результаты" }, { to: "/cabinet/profile", label: "Профиль" }];
-const organizerNav = [{ to: "/manage/competitions", label: "Соревнования" }, { to: "/manage/news", label: "Новости" }, { to: "/manage/documents", label: "Документы" }];
+const athleteNav = [{ to: "/cabinet", label: "Обзор" }, { to: "/cabinet/competitions", label: "Соревнования" }, { to: "/cabinet/results", label: "Мои результаты" }, { to: "/ratings", label: "Рейтинг" }, { to: "/news", label: "Новости" }, { to: "/documents", label: "Документы" }, { to: "/cabinet/profile", label: "Профиль" }];
+const organizerNav = [{ to: "/manage/competitions", label: "Соревнования" }, { to: "/manage/news", label: "Новости" }, { to: "/manage/documents", label: "Документы" }, { to: "/ratings", label: "Рейтинг" }];
 
 function Nav({ path, items }: { path: string; items: { to: string; label: string }[] }) {
-  return <>{items.map(item => <Link key={item.to} className={`nav-link ${path === item.to || (item.to === "/manage/competitions" && path.startsWith(item.to + "/")) ? "nav-active" : ""}`} to={item.to}>{item.label}</Link>)}</>;
+  const matching = items.filter(item => path === item.to || path.startsWith(item.to + "/"));
+  const active = matching.reduce((best, item) => (!best || item.to.length > best.to.length ? item : best), matching[0])?.to;
+  return <>{items.map(item => <Link key={item.to} className={`nav-link ${item.to === active ? "nav-active" : ""}`} to={item.to}>{item.label}</Link>)}</>;
 }
 
 export function App() {
@@ -58,9 +60,11 @@ export function App() {
   else if (path === "/manage/documents") content = <ManageDocuments />;
   else content = <div className="card access-card"><h1>Страница не найдена</h1><Link className="button" to="/">На главную</Link></div>;
 
-  return <div className="app-shell"><header className="site-header"><div className="header-inner"><Link to="/" className="brand"><span className="brand-icon">◈</span><span>Техно<span>Спорт</span>Фест<small>ДАГЕСТАН · 2026</small></span></Link><nav className="desktop-nav" aria-label="Основная навигация"><Nav path={path} items={publicNav} /></nav><div className="header-actions">{user ? <><Link className="header-account" to={user.role === "organizer" ? "/manage/competitions" : "/cabinet"}>{user.role === "organizer" ? "Кабинет организатора" : "Мой кабинет"}</Link><button className="header-logout" onClick={logout}>Выйти</button></> : <><Link className="header-account" to="/login">Войти</Link><Link className="button button-small" to="/register">Регистрация</Link></>}</div></div></header>
-    <div className={`layout ${user && (protectedAthlete || protectedOrganizer) ? "layout-with-sidebar" : ""}`}>
-      {user && (protectedAthlete || protectedOrganizer) && <aside className="sidebar"><div className="sidebar-heading">{user.role === "organizer" ? "ОРГАНИЗАТОР" : "СПОРТСМЕН"}</div><nav aria-label="Личный кабинет"><Nav path={path} items={user.role === "organizer" ? organizerNav : athleteNav} /></nav><div className="sidebar-foot">{user.email}</div></aside>}
+  const isLanding = path === "/";
+  const showSidebar = !!user && !isLanding;
+  return <div className="app-shell"><header className="site-header"><div className="header-inner"><Link to="/" className="brand"><span className="brand-icon">◈</span><span>Техно<span>Спорт</span>Фест<small>ДАГЕСТАН · 2026</small></span></Link><nav className="desktop-nav" aria-label="Основная навигация">{(!user || isLanding) && <Nav path={path} items={publicNav} />}</nav><div className="header-actions">{user ? <><Link className="header-account" to={user.role === "organizer" ? "/manage/competitions" : "/cabinet"}>{user.role === "organizer" ? "Кабинет организатора" : "Мой кабинет"}</Link><button className="header-logout" onClick={logout}>Выйти</button></> : <><Link className="header-account" to="/login">Войти</Link><Link className="button button-small" to="/register">Регистрация</Link></>}</div></div></header>
+    <div className={`layout ${showSidebar ? "layout-with-sidebar" : ""}`}>
+      {showSidebar && <aside className="sidebar"><div className="sidebar-heading">{user!.role === "organizer" ? "ОРГАНИЗАТОР" : "СПОРТСМЕН"}</div><nav aria-label="Личный кабинет"><Nav path={path} items={user!.role === "organizer" ? organizerNav : athleteNav} /></nav><div className="sidebar-foot">{user!.email}</div></aside>}
       <main className="content" id="main"><Notice error={authError} />{content}</main>
     </div><nav className="mobile-nav" aria-label="Мобильная навигация">{user?.role === "organizer" ? <><Link to="/manage/competitions">Соревнования</Link><Link to="/manage/news">Новости</Link><Link to="/manage/documents">Документы</Link><Link to="/ratings">Рейтинг</Link></> : <><Link to={user?.role === "athlete" ? "/cabinet/competitions" : "/competitions"}>Соревнования</Link><Link to="/ratings">Рейтинг</Link><Link to="/news">Новости</Link><Link to="/documents">Документы</Link><Link to={user ? "/cabinet" : "/login"}>Кабинет</Link></>}</nav>
     <footer className="site-footer"><span>© ТехноСпортФест 2026</span><span>Спортивное программирование · Республика Дагестан</span></footer></div>;
