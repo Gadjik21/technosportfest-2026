@@ -102,8 +102,11 @@ def logout(response: Response) -> None:
 
 
 @router.get("/me", response_model=UserResponse)
-def me(principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)) -> UserResponse:
+def me(response: Response, principal: Principal = Depends(get_current_principal), db: Session = Depends(get_db)) -> UserResponse:
     user = db.get(User, principal.user_id)
     if user is None:
         raise ApiError(401, "UNAUTHENTICATED", "Нужно войти в аккаунт.")
+    # Role changes are stored in the database, while permissions in the JWT can be stale.
+    # Refresh the cookie whenever the client checks its session so UI and API agree.
+    set_access_cookie(response, user)
     return user_response(user)

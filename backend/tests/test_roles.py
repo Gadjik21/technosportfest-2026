@@ -89,6 +89,30 @@ def test_permission_catalog_and_auth_me_permissions():
     assert me.json()["permissions"] == []
 
 
+def test_auth_me_refreshes_permissions_after_role_change():
+    env = Env()
+    user = env.create_user_with_role("admin@example.com", ROLE_ORGANIZER)
+    login = env.client.post(
+        "/api/v1/auth/login",
+        json={"email": user.email, "password": "long-demo-password"},
+        headers=ORIGIN,
+    )
+    assert login.status_code == 200
+    assert env.client.get("/api/v1/admin/permissions").status_code == 403
+
+    with env.sessions() as db:
+        admin_role = get_role_by_name(db, ROLE_MASTER_ADMIN)
+        assert admin_role is not None
+        db.get(User, user.id).role_id = admin_role.id
+        db.commit()
+
+    me = env.client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+    assert me.json()["role"] == ROLE_MASTER_ADMIN
+    assert "roles.manage" in me.json()["permissions"]
+    assert env.client.get("/api/v1/admin/permissions").status_code == 200
+
+
 def test_role_crud_and_system_role_protection():
     env = Env()
     ensure_system_roles_in_tests(env.sessions)
