@@ -229,14 +229,16 @@ export function ManageDocuments() {
   return <><PageTitle eyebrow="ОРГАНИЗАТОР" title="Документы" description="Добавляйте ссылки на положения и правила." /><form className="card form-card" onSubmit={submit}><h2>{editing ? "Редактировать документ" : "Новый документ"}</h2><Notice error={error} success={success} /><label>Название <input required minLength={3} maxLength={200} value={title} onChange={event => setTitle(event.target.value)} /></label><label>Категория <input required maxLength={80} value={category} onChange={event => setCategory(event.target.value)} placeholder="Положение" /></label><label>Ссылка на файл (HTTPS) <input required type="url" pattern="https://.*" value={fileUrl} onChange={event => setFileUrl(event.target.value)} placeholder="https://..." /></label><p className="hint">MVP хранит ссылку на файл. Загрузку файла добавим отдельным этапом.</p><div className="form-actions"><button className="button" disabled={busy}>{busy ? "Сохраняем…" : editing ? "Сохранить" : "Добавить"}</button>{editing && <button type="button" className="button button-secondary" onClick={() => { setEditing(null); setTitle(""); setCategory(""); setFileUrl(""); }}>Отмена</button>}</div></form><div className="section-heading"><h2>Документы</h2></div><LoadState loading={list.loading} error={list.error}>{list.data?.length ? <div className="card list-card">{list.data.map(item => <div className="list-row" key={item.id}><div><strong>{item.title}</strong><small>{item.category} · {date(item.publishedAt)}</small></div><button className="text-link" onClick={() => edit(item)}>Изменить</button></div>)}</div> : <Empty>Документов пока нет.</Empty>}</LoadState></>;
 }
 
-type MailingDraft = { id: string; subject: string; preheader: string; audience: string; body: string; updatedAt: string };
+type MailingDraft = { id: string; subject: string; preheader: string; audience: string; locality: string; education: string; disciplineId: string; body: string; updatedAt: string };
 const mailingAudiences = [
   ["all", "Все зарегистрированные пользователи"],
-  ["athletes", "Спортсмены"],
-  ["organizers", "Организаторы"],
+  ["athlete", "Спортсмены"],
+  ["organizer", "Организаторы"],
 ] as const;
 
 export function ManageMailings({ userId }: { userId: string }) {
+  const recipients = useLoad(api.mailingRecipients, "mailing-recipients");
+  const disciplines = useLoad(api.disciplines, "mailing-disciplines");
   const storageKey = `technosportfest:mailings:${userId}`;
   const [drafts, setDrafts] = useState<MailingDraft[]>(() => {
     try {
@@ -253,10 +255,16 @@ export function ManageMailings({ userId }: { userId: string }) {
     window.localStorage.setItem(storageKey, JSON.stringify(next));
   }
   function create() {
-    setForm({ id: crypto.randomUUID(), subject: "", preheader: "", audience: "all", body: "", updatedAt: new Date().toISOString() });
+    setForm({ id: crypto.randomUUID(), subject: "", preheader: "", audience: "all", locality: "", education: "", disciplineId: "", body: "", updatedAt: new Date().toISOString() });
     setPreview(false); setNotice(""); window.scrollTo(0, 0);
   }
-  function edit(draft: MailingDraft) { setForm({ ...draft }); setPreview(false); setNotice(""); window.scrollTo(0, 0); }
+  function edit(draft: MailingDraft) { setForm({ ...draft, locality: draft.locality ?? "", education: draft.education ?? "", disciplineId: draft.disciplineId ?? "", audience: draft.audience === "athletes" ? "athlete" : draft.audience === "organizers" ? "organizer" : draft.audience }); setPreview(false); setNotice(""); window.scrollTo(0, 0); }
+  const filteredRecipients = (recipients.data ?? []).filter(item =>
+    (form?.audience === "all" || item.roleName === form?.audience) &&
+    (!form?.locality || item.locality === form.locality) &&
+    (!form?.education || item.education === form.education) &&
+    (!form?.disciplineId || item.disciplineIds.includes(form.disciplineId))
+  );
   function save(event: FormEvent) {
     event.preventDefault();
     if (!form) return;
@@ -273,10 +281,15 @@ export function ManageMailings({ userId }: { userId: string }) {
     <Notice success={notice} />
     {form && <form className="card form-card mailing-form" onSubmit={save}>
       <div className="section-heading"><h2>{drafts.some(item => item.id === form.id) ? "Изменить черновик" : "Новая рассылка"}</h2><button className="text-link" type="button" onClick={() => setPreview(value => !value)}>{preview ? "Редактировать" : "Предпросмотр"}</button></div>
-      {preview ? <div className="mailing-preview"><div className="eyebrow">Предпросмотр письма</div><h2>{form.subject || "Тема письма"}</h2><p className="muted">{form.preheader || "Краткий текст письма"}</p><hr /><div className="article-body">{form.body || "Текст письма появится здесь."}</div><small>Аудитория: {mailingAudiences.find(([key]) => key === form.audience)?.[1]}</small></div> : <>
+      {preview ? <div className="mailing-preview"><div className="eyebrow">Предпросмотр письма</div><h2>{form.subject || "Тема письма"}</h2><p className="muted">{form.preheader || "Краткий текст письма"}</p><hr /><div className="article-body">{form.body || "Текст письма появится здесь."}</div><small>Аудитория: {mailingAudiences.find(([key]) => key === form.audience)?.[1]} · получателей: {recipients.loading ? "…" : filteredRecipients.length}</small></div> : <>
         <label>Тема письма <input required minLength={2} maxLength={160} value={form.subject} onChange={event => setForm({ ...form, subject: event.target.value })} placeholder="Например, регистрация на турнир открыта" /></label>
         <label>Краткий текст <input maxLength={180} value={form.preheader} onChange={event => setForm({ ...form, preheader: event.target.value })} placeholder="Строка, которую увидят рядом с темой" /></label>
         <label>Аудитория <select value={form.audience} onChange={event => setForm({ ...form, audience: event.target.value })}>{mailingAudiences.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <div className="mailing-filters"><h3>Фильтры аудитории</h3><p className="muted">Укажите параметры профиля, чтобы сузить список получателей.</p><div className="form-grid">
+          <label>Город <select value={form.locality} onChange={event => setForm({ ...form, locality: event.target.value })}><option value="">Любой город</option>{[...new Set((recipients.data ?? []).map(item => item.locality).filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b, "ru")).map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+          <label>Место учёбы <select value={form.education} onChange={event => setForm({ ...form, education: event.target.value })}><option value="">Любое место учёбы</option>{[...new Set((recipients.data ?? []).map(item => item.education).filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b, "ru")).map(value => <option key={value} value={value}>{value}</option>)}</select></label>
+          <label>Дисциплина <select value={form.disciplineId} onChange={event => setForm({ ...form, disciplineId: event.target.value })}><option value="">Любая дисциплина</option>{(disciplines.data ?? []).filter(item => (recipients.data ?? []).some(recipient => recipient.disciplineIds.includes(item.id))).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        </div><p className="hint">{recipients.loading ? "Загружаем аудиторию…" : recipients.error ? `Не удалось загрузить аудиторию: ${recipients.error}` : `Подходящих получателей: ${filteredRecipients.length}`}</p></div>
         <label>Текст письма <textarea required minLength={2} maxLength={12000} rows={12} value={form.body} onChange={event => setForm({ ...form, body: event.target.value })} placeholder="Напишите содержание рассылки…" /></label>
       </>}
       <div className="form-actions"><button className="button" type="submit">Сохранить черновик</button><button className="button button-secondary" type="button" onClick={() => { setForm(null); setPreview(false); }}>Отмена</button></div>

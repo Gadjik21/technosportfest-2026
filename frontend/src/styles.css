@@ -692,6 +692,23 @@ td small,.list-row small {
   margin:0;
   align-items:center
 }
+.mailing-filters {
+  padding:18px;
+  border:1px solid #e5e7ed;
+  border-radius:10px;
+  background:#fbfbfd
+}
+.mailing-filters h3 {
+  margin:0 0 6px;
+  color:#252b3a;
+  font-size:16px
+}
+.mailing-filters p {
+  margin:0 0 12px
+}
+.mailing-filters .hint {
+  margin:12px 0 0
+}
 .mailing-preview {
   min-height:240px;
   padding:24px;

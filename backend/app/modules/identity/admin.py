@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.errors import ApiError
+from app.modules.competitions.models import AthleteDiscipline
 from app.modules.identity.models import AthleteProfile, Role, RolePermission, User
 from app.modules.identity.permissions import (
     ALL_PERMISSIONS,
@@ -93,6 +94,16 @@ class AdminUserPage(BaseModel):
     page: int
     pageSize: int
     total: int
+
+
+class MailingRecipient(BaseModel):
+    id: UUID
+    email: str
+    fullName: str | None
+    roleName: str
+    locality: str | None
+    education: str | None
+    disciplineIds: list[UUID]
 
 
 class AssignRoleRequest(BaseModel):
@@ -255,6 +266,39 @@ def list_users(
     ).all()
     items = [_admin_user_response(user, full_name) for user, full_name in rows]
     return AdminUserPage(items=items, page=page, pageSize=pageSize, total=total)
+
+
+@router.get("/mailing-recipients", response_model=list[MailingRecipient])
+def list_mailing_recipients(
+    _: Principal = Depends(require_permission("mailings.manage")),
+    db: Session = Depends(get_db),
+) -> list[MailingRecipient]:
+    """Данные аудитории для подготовки рассылки. Письма этим endpoint не отправляются."""
+    rows = db.execute(
+        select(User, AthleteProfile)
+        .outerjoin(AthleteProfile, AthleteProfile.user_id == User.id)
+        .order_by(User.created_at.desc(), User.id.desc())
+    ).all()
+    user_ids = [user.id for user, _ in rows]
+    discipline_rows = db.execute(
+        select(AthleteDiscipline.user_id, AthleteDiscipline.discipline_id)
+        .where(AthleteDiscipline.user_id.in_(user_ids))
+    ).all() if user_ids else []
+    discipline_ids: dict[UUID, list[UUID]] = {}
+    for user_id, discipline_id in discipline_rows:
+        discipline_ids.setdefault(user_id, []).append(discipline_id)
+    return [
+        MailingRecipient(
+            id=user.id,
+            email=user.email,
+            fullName=profile.full_name if profile else None,
+            roleName=user.role.name,
+            locality=profile.locality if profile else None,
+            education=profile.education if profile else None,
+            disciplineIds=discipline_ids.get(user.id, []),
+        )
+        for user, profile in rows
+    ]
 
 
 @router.put("/users/{userId}/role", response_model=AdminUser)

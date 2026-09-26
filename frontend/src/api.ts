@@ -19,6 +19,7 @@ export type SubmissionForGrading = S["SubmissionForGrading"];
 export type Standings = S["Standings"];
 export type Role = S["Role"];
 export type AdminUser = S["AdminUser"];
+export type MailingRecipient = { id: string; email: string; fullName: string | null; roleName: string; locality: string | null; education: string | null; disciplineIds: string[] };
 export type PermissionGroup = S["PermissionGroup"];
 export type Page<T> = { items: T[]; page: number; pageSize: number; total: number };
 
@@ -103,5 +104,6 @@ export const api = {
   deleteRole: (id: string) => request<void>(`/admin/roles/${id}`, { method: "DELETE" }),
   setRolePermissions: (id: string, permissions: string[]) => request<Role>(`/admin/roles/${id}/permissions`, { method: "PUT", body: { permissions } }),
   users: (page = 1, pageSize = 100) => request<Page<AdminUser>>(`/admin/users${query({ page, pageSize })}`),
+  mailingRecipients: () => request<MailingRecipient[]>("/admin/mailing-recipients"),
   assignRole: (userId: string, roleId: string) => request<AdminUser>(`/admin/users/${userId}/role`, { method: "PUT", body: { roleId } }),
 };
