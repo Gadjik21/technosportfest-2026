@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type User } from "./api";
 import { AthleteDashboard, CabinetCompetitions, MyProfile, MyResults } from "./AthletePages";
-import { ManageCompetition, ManageCompetitions, ManageDocuments, ManageNews, ManageRoles, ManageUsers, NewCompetition } from "./OrganizerPages";
+import { ManageCompetition, ManageCompetitions, ManageDocuments, ManageMailings, ManageNews, ManageRoles, ManageUsers, NewCompetition } from "./OrganizerPages";
 import { AuthPage, CompetitionDetail, Competitions, Documents, Home, NewsDetail, NewsList, Ratings } from "./PublicPages";
 import { Empty, Link, Notice, go, useRoute } from "./ui";
 
@@ -14,6 +14,7 @@ const manageNav: NavItem[] = [
   { to: "/manage/competitions", label: "Соревнования", perm: "competitions.view" },
   { to: "/manage/news", label: "Новости", perm: "news.view" },
   { to: "/manage/documents", label: "Документы", perm: "documents.view" },
+  { to: "/manage/mailings", label: "Рассылки", perm: "mailings.manage" },
   { to: "/manage/roles", label: "Роли и права", perm: "roles.manage" },
   { to: "/manage/users", label: "Пользователи", perm: "users.manage" },
 ];
@@ -80,6 +81,7 @@ export function App() {
   else if (manageId) content = <ManageCompetition id={manageId} />;
   else if (path === "/manage/news") content = <ManageNews />;
   else if (path === "/manage/documents") content = <ManageDocuments />;
+  else if (path === "/manage/mailings") content = <ManageMailings userId={user!.id} />;
   else if (path === "/manage/roles") content = <ManageRoles />;
   else if (path === "/manage/users") content = <ManageUsers />;
   else content = <div className="card access-card"><h1>Страница не найдена</h1><Link className="button" to="/">На главную</Link></div>;

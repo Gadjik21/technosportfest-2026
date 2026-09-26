@@ -206,6 +206,63 @@ export function ManageDocuments() {
   return <><PageTitle eyebrow="ОРГАНИЗАТОР" title="Документы" description="Добавляйте ссылки на положения и правила." /><form className="card form-card" onSubmit={submit}><h2>{editing ? "Редактировать документ" : "Новый документ"}</h2><Notice error={error} success={success} /><label>Название <input required minLength={3} maxLength={200} value={title} onChange={event => setTitle(event.target.value)} /></label><label>Категория <input required maxLength={80} value={category} onChange={event => setCategory(event.target.value)} placeholder="Положение" /></label><label>Ссылка на файл (HTTPS) <input required type="url" pattern="https://.*" value={fileUrl} onChange={event => setFileUrl(event.target.value)} placeholder="https://..." /></label><p className="hint">MVP хранит ссылку на файл. Загрузку файла добавим отдельным этапом.</p><div className="form-actions"><button className="button" disabled={busy}>{busy ? "Сохраняем…" : editing ? "Сохранить" : "Добавить"}</button>{editing && <button type="button" className="button button-secondary" onClick={() => { setEditing(null); setTitle(""); setCategory(""); setFileUrl(""); }}>Отмена</button>}</div></form><div className="section-heading"><h2>Документы</h2></div><LoadState loading={list.loading} error={list.error}>{list.data?.length ? <div className="card list-card">{list.data.map(item => <div className="list-row" key={item.id}><div><strong>{item.title}</strong><small>{item.category} · {date(item.publishedAt)}</small></div><button className="text-link" onClick={() => edit(item)}>Изменить</button></div>)}</div> : <Empty>Документов пока нет.</Empty>}</LoadState></>;
 }
 
+type MailingDraft = { id: string; subject: string; preheader: string; audience: string; body: string; updatedAt: string };
+const mailingAudiences = [
+  ["all", "Все зарегистрированные пользователи"],
+  ["athletes", "Спортсмены"],
+  ["organizers", "Организаторы"],
+] as const;
+
+export function ManageMailings({ userId }: { userId: string }) {
+  const storageKey = `technosportfest:mailings:${userId}`;
+  const [drafts, setDrafts] = useState<MailingDraft[]>(() => {
+    try {
+      const stored: unknown = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
+      return Array.isArray(stored) ? stored.filter(item => item && typeof item.id === "string") as MailingDraft[] : [];
+    } catch { return []; }
+  });
+  const [form, setForm] = useState<MailingDraft | null>(null);
+  const [preview, setPreview] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  function persist(next: MailingDraft[]) {
+    setDrafts(next);
+    window.localStorage.setItem(storageKey, JSON.stringify(next));
+  }
+  function create() {
+    setForm({ id: crypto.randomUUID(), subject: "", preheader: "", audience: "all", body: "", updatedAt: new Date().toISOString() });
+    setPreview(false); setNotice(""); window.scrollTo(0, 0);
+  }
+  function edit(draft: MailingDraft) { setForm({ ...draft }); setPreview(false); setNotice(""); window.scrollTo(0, 0); }
+  function save(event: FormEvent) {
+    event.preventDefault();
+    if (!form) return;
+    const value = { ...form, subject: form.subject.trim(), body: form.body.trim(), updatedAt: new Date().toISOString() };
+    persist([value, ...drafts.filter(item => item.id !== value.id)]);
+    setForm(null); setPreview(false); setNotice("Черновик рассылки сохранён на этом устройстве.");
+  }
+  function remove(draft: MailingDraft) {
+    if (!window.confirm(`Удалить черновик «${draft.subject || "Без темы"}»?`)) return;
+    persist(drafts.filter(item => item.id !== draft.id)); setNotice("Черновик удалён.");
+  }
+
+  return <><PageTitle eyebrow="MASTER ADMIN" title="Рассылки" description="Подготовьте письмо и выберите аудиторию. Пока рассылки сохраняются только как черновики в этом браузере." action={!form && <button className="button" onClick={create}>+ Новая рассылка</button>} />
+    <Notice success={notice} />
+    {form && <form className="card form-card mailing-form" onSubmit={save}>
+      <div className="section-heading"><h2>{drafts.some(item => item.id === form.id) ? "Изменить черновик" : "Новая рассылка"}</h2><button className="text-link" type="button" onClick={() => setPreview(value => !value)}>{preview ? "Редактировать" : "Предпросмотр"}</button></div>
+      {preview ? <div className="mailing-preview"><div className="eyebrow">Предпросмотр письма</div><h2>{form.subject || "Тема письма"}</h2><p className="muted">{form.preheader || "Краткий текст письма"}</p><hr /><div className="article-body">{form.body || "Текст письма появится здесь."}</div><small>Аудитория: {mailingAudiences.find(([key]) => key === form.audience)?.[1]}</small></div> : <>
+        <label>Тема письма <input required minLength={2} maxLength={160} value={form.subject} onChange={event => setForm({ ...form, subject: event.target.value })} placeholder="Например, регистрация на турнир открыта" /></label>
+        <label>Краткий текст <input maxLength={180} value={form.preheader} onChange={event => setForm({ ...form, preheader: event.target.value })} placeholder="Строка, которую увидят рядом с темой" /></label>
+        <label>Аудитория <select value={form.audience} onChange={event => setForm({ ...form, audience: event.target.value })}>{mailingAudiences.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+        <label>Текст письма <textarea required minLength={2} maxLength={12000} rows={12} value={form.body} onChange={event => setForm({ ...form, body: event.target.value })} placeholder="Напишите содержание рассылки…" /></label>
+      </>}
+      <div className="form-actions"><button className="button" type="submit">Сохранить черновик</button><button className="button button-secondary" type="button" onClick={() => { setForm(null); setPreview(false); }}>Отмена</button></div>
+    </form>}
+    {drafts.length ? <div className="card list-card">{drafts.map(draft => <div className="list-row" key={draft.id}><div><strong>{draft.subject || "Без темы"}</strong><small>{mailingAudiences.find(([key]) => key === draft.audience)?.[1] || "Все пользователи"} · изменено {new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(draft.updatedAt))}</small><small>{draft.preheader || draft.body.slice(0, 90) || "Нет текста"}</small></div><div className="form-actions"><button className="text-link" onClick={() => edit(draft)}>Изменить</button><button className="text-link" onClick={() => remove(draft)}>Удалить</button></div></div>)}</div> : !form && <Empty>Черновиков пока нет. Создайте рассылку, чтобы подготовить первое письмо.</Empty>}
+    <p className="hint">Отправка писем появится после подключения backend.</p>
+  </>;
+}
+
 const actionLabel = (code: string) => {
   const action = code.split(".").pop() ?? code;
   return ({ view: "Просмотр", create: "Создание", edit: "Редактирование", delete: "Удаление", publish: "Публикация", save: "Сохранение", tasks: "Задания", grade: "Проверка решений", manage: "Управление" } as Record<string, string>)[action] ?? action;

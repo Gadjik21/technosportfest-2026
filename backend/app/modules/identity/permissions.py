@@ -25,6 +25,7 @@ PERMISSION_GROUPS: dict[str, list[str]] = {
     ],
     "contests": ["contests.tasks", "contests.grade"],
     "results": ["results.view", "results.save", "results.publish"],
+    "mailings": ["mailings.manage"],
     "users": ["users.manage"],
     "roles": ["roles.manage"],
 }
@@ -35,6 +36,7 @@ PERMISSION_LABELS: dict[str, str] = {
     "competitions": "Соревнования",
     "contests": "Контест",
     "results": "Результаты",
+    "mailings": "Рассылки",
     "users": "Пользователи",
     "roles": "Роли и права",
 }
@@ -45,7 +47,7 @@ ALL_PERMISSIONS: list[str] = sorted({code for codes in PERMISSION_GROUPS.values(
 #: без управления ролями/пользователями; master admin — всё.
 SYSTEM_ROLE_PERMISSIONS: dict[str, list[str]] = {
     ROLE_ATHLETE: [],
-    ROLE_ORGANIZER: [code for code in ALL_PERMISSIONS if code not in {"users.manage", "roles.manage"}],
+    ROLE_ORGANIZER: [code for code in ALL_PERMISSIONS if code not in {"users.manage", "roles.manage", "mailings.manage"}],
     ROLE_MASTER_ADMIN: ALL_PERMISSIONS,
 }
 

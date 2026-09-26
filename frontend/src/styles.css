@@ -681,6 +681,28 @@ td small,.list-row small {
   grid-template-columns:1fr 1fr;
   gap:14px
 }
+.mailing-form {
+  max-width:900px
+}
+.mailing-form .section-heading {
+  margin:0;
+  align-items:center
+}
+.mailing-preview {
+  min-height:240px;
+  padding:24px;
+  border:1px solid #e5e7ed;
+  border-radius:10px;
+  background:#fff
+}
+.mailing-preview h2 {
+  margin:16px 0 8px
+}
+.mailing-preview small {
+  display:block;
+  margin-top:24px;
+  color:#858a9a
+}
 .form-actions {
   display:flex;
   gap:9px
