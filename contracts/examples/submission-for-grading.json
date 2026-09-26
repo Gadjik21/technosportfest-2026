@@ -9,5 +9,12 @@
   "gradedAt": null,
   "taskTitle": "Сумма двух чисел",
   "taskMaxScore": 100,
-  "athleteFullName": "Амина Алиева"
+  "athleteFullName": "Амина Алиева",
+  "language": null,
+  "verdict": null,
+  "failedTestIndex": null,
+  "timeMs": null,
+  "memoryKb": null,
+  "testResults": [],
+  "judgeMessage": null
 }

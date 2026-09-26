@@ -3705,6 +3705,39 @@
           "orderIndex": {
             "type": "integer",
             "minimum": 0
+          },
+          "judgingMode": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "code"
+            ]
+          },
+          "timeLimitSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "memoryLimitMb": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 512
+          },
+          "visibleTestCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50
+          },
+          "testCaseCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50
+          },
+          "testCases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestCaseInput"
+            }
           }
         },
         "required": [
@@ -3713,7 +3746,13 @@
           "title",
           "statement",
           "maxScore",
-          "orderIndex"
+          "orderIndex",
+          "judgingMode",
+          "timeLimitSeconds",
+          "memoryLimitMb",
+          "visibleTestCount",
+          "testCaseCount",
+          "testCases"
         ]
       },
       "TaskCreateRequest": {
@@ -3734,6 +3773,40 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 1000
+          },
+          "judgingMode": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "code"
+            ],
+            "default": "manual"
+          },
+          "testCases": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/TestCaseInput"
+            },
+            "default": []
+          },
+          "timeLimitSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 15
+          },
+          "memoryLimitMb": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 512,
+            "default": 128
+          },
+          "visibleTestCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50,
+            "default": 2
           }
         },
         "required": [
@@ -3760,6 +3833,35 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 1000
+          },
+          "judgingMode": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "code"
+            ]
+          },
+          "testCases": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/TestCaseInput"
+            }
+          },
+          "timeLimitSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "memoryLimitMb": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 512
+          },
+          "visibleTestCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50
           }
         }
       },
@@ -3771,13 +3873,27 @@
             "type": "string",
             "enum": [
               "text",
-              "link"
+              "link",
+              "code"
             ]
           },
           "content": {
             "type": "string",
             "minLength": 1,
             "maxLength": 10000
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "python",
+              "javascript",
+              "go",
+              "java",
+              "kotlin",
+              "cpp",
+              "rust"
+            ],
+            "nullable": true
           }
         },
         "required": [
@@ -3805,7 +3921,8 @@
             "type": "string",
             "enum": [
               "text",
-              "link"
+              "link",
+              "code"
             ]
           },
           "content": {
@@ -3824,6 +3941,36 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "language": {
+            "type": "string",
+            "nullable": true
+          },
+          "verdict": {
+            "type": "string",
+            "nullable": true
+          },
+          "failedTestIndex": {
+            "type": "integer",
+            "nullable": true
+          },
+          "timeMs": {
+            "type": "integer",
+            "nullable": true
+          },
+          "memoryKb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "testResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestResult"
+            }
+          },
+          "judgeMessage": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -3834,7 +3981,14 @@
           "content",
           "submittedAt",
           "score",
-          "gradedAt"
+          "gradedAt",
+          "language",
+          "verdict",
+          "failedTestIndex",
+          "timeMs",
+          "memoryKb",
+          "testResults",
+          "judgeMessage"
         ]
       },
       "SubmissionForGrading": {
@@ -3857,7 +4011,8 @@
             "type": "string",
             "enum": [
               "text",
-              "link"
+              "link",
+              "code"
             ]
           },
           "content": {
@@ -3886,6 +4041,36 @@
           },
           "athleteFullName": {
             "type": "string"
+          },
+          "language": {
+            "type": "string",
+            "nullable": true
+          },
+          "verdict": {
+            "type": "string",
+            "nullable": true
+          },
+          "failedTestIndex": {
+            "type": "integer",
+            "nullable": true
+          },
+          "timeMs": {
+            "type": "integer",
+            "nullable": true
+          },
+          "memoryKb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "testResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TestResult"
+            }
+          },
+          "judgeMessage": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
@@ -3899,7 +4084,14 @@
           "gradedAt",
           "taskTitle",
           "taskMaxScore",
-          "athleteFullName"
+          "athleteFullName",
+          "language",
+          "verdict",
+          "failedTestIndex",
+          "timeMs",
+          "memoryKb",
+          "testResults",
+          "judgeMessage"
         ]
       },
       "GradeRequest": {
@@ -4221,6 +4413,61 @@
           "page",
           "pageSize",
           "total"
+        ]
+      },
+      "TestCaseInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "type": "string",
+            "maxLength": 8192
+          },
+          "expectedOutput": {
+            "type": "string",
+            "maxLength": 8192
+          }
+        },
+        "required": [
+          "input",
+          "expectedOutput"
+        ]
+      },
+      "TestResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "verdict": {
+            "type": "string"
+          },
+          "timeMs": {
+            "type": "integer",
+            "nullable": true
+          },
+          "memoryKb": {
+            "type": "integer",
+            "nullable": true
+          },
+          "actualOutput": {
+            "type": "string",
+            "nullable": true
+          },
+          "stderr": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "index",
+          "verdict",
+          "timeMs",
+          "memoryKb",
+          "actualOutput",
+          "stderr"
         ]
       }
     },

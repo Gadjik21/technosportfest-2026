@@ -1056,21 +1056,49 @@ export interface components {
             statement: string;
             maxScore: number;
             orderIndex: number;
+            /** @enum {string} */
+            judgingMode: "manual" | "code";
+            timeLimitSeconds: number;
+            memoryLimitMb: number;
+            visibleTestCount: number;
+            testCaseCount: number;
+            testCases: components["schemas"]["TestCaseInput"][];
         };
         TaskCreateRequest: {
             title: string;
             statement: string;
             maxScore: number;
+            /**
+             * @default manual
+             * @enum {string}
+             */
+            judgingMode: "manual" | "code";
+            /** @default [] */
+            testCases: components["schemas"]["TestCaseInput"][];
+            /** @default 15 */
+            timeLimitSeconds: number;
+            /** @default 128 */
+            memoryLimitMb: number;
+            /** @default 2 */
+            visibleTestCount: number;
         };
         TaskPatchRequest: {
             title?: string;
             statement?: string;
             maxScore?: number;
+            /** @enum {string} */
+            judgingMode?: "manual" | "code";
+            testCases?: components["schemas"]["TestCaseInput"][];
+            timeLimitSeconds?: number;
+            memoryLimitMb?: number;
+            visibleTestCount?: number;
         };
         SubmissionRequest: {
             /** @enum {string} */
-            kind: "text" | "link";
+            kind: "text" | "link" | "code";
             content: string;
+            /** @enum {string|null} */
+            language?: "python" | "javascript" | "go" | "java" | "kotlin" | "cpp" | "rust" | null;
         };
         Submission: {
             /** Format: uuid */
@@ -1080,13 +1108,20 @@ export interface components {
             /** Format: uuid */
             registrationId: string;
             /** @enum {string} */
-            kind: "text" | "link";
+            kind: "text" | "link" | "code";
             content: string;
             /** Format: date-time */
             submittedAt: string;
             score: number | null;
             /** Format: date-time */
             gradedAt: string | null;
+            language: string | null;
+            verdict: string | null;
+            failedTestIndex: number | null;
+            timeMs: number | null;
+            memoryKb: number | null;
+            testResults: components["schemas"]["TestResult"][];
+            judgeMessage: string | null;
         };
         SubmissionForGrading: {
             /** Format: uuid */
@@ -1096,7 +1131,7 @@ export interface components {
             /** Format: uuid */
             registrationId: string;
             /** @enum {string} */
-            kind: "text" | "link";
+            kind: "text" | "link" | "code";
             content: string;
             /** Format: date-time */
             submittedAt: string;
@@ -1106,6 +1141,13 @@ export interface components {
             taskTitle: string;
             taskMaxScore: number;
             athleteFullName: string;
+            language: string | null;
+            verdict: string | null;
+            failedTestIndex: number | null;
+            timeMs: number | null;
+            memoryKb: number | null;
+            testResults: components["schemas"]["TestResult"][];
+            judgeMessage: string | null;
         };
         GradeRequest: {
             score: number;
@@ -1185,6 +1227,18 @@ export interface components {
             page: number;
             pageSize: number;
             total: number;
+        };
+        TestCaseInput: {
+            input: string;
+            expectedOutput: string;
+        };
+        TestResult: {
+            index: number;
+            verdict: string;
+            timeMs: number | null;
+            memoryKb: number | null;
+            actualOutput: string | null;
+            stderr: string | null;
         };
     };
     responses: {

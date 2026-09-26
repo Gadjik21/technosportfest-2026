@@ -11,6 +11,7 @@
 import os
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
+from types import SimpleNamespace
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite://")
 os.environ.setdefault("JWT_SECRET", "test-only-secret-with-at-least-32-characters")
@@ -23,7 +24,11 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.main import create_app
 from app.modules.competitions.models import Competition, Discipline, Registration
+from app.modules.competitions import router as competitions_router
 from app.modules.contests import models as contests_models  # noqa: F401: registers metadata
+from app.modules.contests import service as contests_service
+from app import judge_worker
+from app.modules.contests.judge import JudgeResult
 from app.modules.content import models as content_models  # noqa: F401: registers metadata
 from app.modules.identity.models import AthleteProfile, User
 from app.modules.identity.permissions import ALL_PERMISSIONS
@@ -264,3 +269,80 @@ def test_tasks_locked_after_publish():
     )
     assert blocked.status_code == 409
     assert blocked.json()["code"] == "INVALID_STATE"
+
+
+def test_code_task_results_reach_athlete_without_exposing_hidden_case(monkeypatch):
+    env = Env()
+    competition_id, athlete_id = env.seed_draft_competition_with_registration("coder@example.com", "Программист")
+    env.login_organizer()
+    task_response = env.client.post(
+        f"/api/v1/competitions/{competition_id}/tasks",
+        json={"title": "Сумма", "statement": "Сложите числа", "maxScore": 100, "judgingMode": "code",
+              "visibleTestCount": 1, "testCases": [
+                  {"input": "1 2\n", "expectedOutput": "3\n"},
+                  {"input": "91 9\n", "expectedOutput": "100\n"},
+              ]},
+        headers=ORIGIN,
+    )
+    assert task_response.status_code == 201, task_response.text
+    task_id = task_response.json()["id"]
+    assert task_response.json()["memoryLimitMb"] == 128
+    assert len(task_response.json()["testCases"]) == 2
+    replaced_cases = env.client.patch(
+        f"/api/v1/competitions/{competition_id}/tasks/{task_id}",
+        json={"testCases": [{"input": "1 2\n", "expectedOutput": "3\n"},
+                            {"input": "91 9\n", "expectedOutput": "100\n"}]}, headers=ORIGIN,
+    )
+    assert replaced_cases.status_code == 200, replaced_cases.text
+    too_much_memory = env.client.patch(
+        f"/api/v1/competitions/{competition_id}/tasks/{task_id}",
+        json={"memoryLimitMb": 513}, headers=ORIGIN,
+    )
+    assert too_much_memory.status_code == 422
+    blocked_publish = env.client.post(f"/api/v1/competitions/{competition_id}/publish", headers=ORIGIN)
+    assert blocked_publish.status_code == 409
+    assert blocked_publish.json()["code"] == "JUDGE_UNAVAILABLE"
+    monkeypatch.setattr(competitions_router, "get_settings", lambda: SimpleNamespace(judge_enabled=True))
+    env.client.post(f"/api/v1/competitions/{competition_id}/publish", headers=ORIGIN)
+    env.fast_forward_to_ongoing(competition_id)
+
+    env.login_as(athlete_id, "athlete")
+    public_task = env.client.get(f"/api/v1/competitions/{competition_id}/tasks").json()[0]
+    assert public_task["testCaseCount"] == 2
+    assert public_task["testCases"] == [{"input": "1 2\n", "expectedOutput": "3\n"}]
+    unavailable = env.client.put(
+        f"/api/v1/competitions/{competition_id}/tasks/{task_id}/submission",
+        json={"kind": "code", "language": "python", "content": "print(0)"}, headers=ORIGIN,
+    )
+    assert unavailable.status_code == 503  # No sandbox is connected by default.
+    monkeypatch.setattr(contests_service, "get_settings", lambda: SimpleNamespace(judge_enabled=True))
+    queued = env.client.put(
+        f"/api/v1/competitions/{competition_id}/tasks/{task_id}/submission",
+        json={"kind": "code", "language": "python", "content": "print(0)"}, headers=ORIGIN,
+    )
+    assert queued.status_code == 200, queued.text
+    assert queued.json()["verdict"] == "queued"
+    assert queued.json()["score"] is None
+    monkeypatch.setattr(judge_worker, "get_sessionmaker", lambda: env.sessions)
+    monkeypatch.setattr(judge_worker, "judge_code", lambda *args: JudgeResult(
+        "wrong_answer", 2, 42, 1024, [
+            {"index": 1, "verdict": "accepted", "timeMs": 20, "memoryKb": 1000, "actualOutput": "3\n", "stderr": ""},
+            {"index": 2, "verdict": "wrong_answer", "timeMs": 22, "memoryKb": 1024, "actualOutput": "hidden actual", "stderr": "hidden stderr"},
+        ],
+    ))
+    assert judge_worker.process_one()
+    own = env.client.get(f"/api/v1/competitions/{competition_id}/my-submissions").json()[0]
+    assert own["verdict"] == "wrong_answer"
+    assert own["failedTestIndex"] == 2
+    assert own["score"] == 0
+    assert own["testResults"][0]["actualOutput"] == "3\n"
+    assert own["testResults"][1]["actualOutput"] is None
+    assert own["testResults"][1]["stderr"] is None
+    env.login_organizer()
+    reviewed = env.client.get(f"/api/v1/competitions/{competition_id}/submissions").json()[0]
+    assert reviewed["testResults"][1]["actualOutput"] == "hidden actual"
+    cannot_regrade = env.client.patch(
+        f"/api/v1/competitions/{competition_id}/submissions/{reviewed['id']}",
+        json={"score": 100}, headers=ORIGIN,
+    )
+    assert cannot_regrade.status_code == 409

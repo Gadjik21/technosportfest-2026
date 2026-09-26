@@ -9,14 +9,16 @@
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.errors import ApiError
 from app.modules.competitions.ports import CompetitionPort
-from app.modules.contests.models import Submission, Task
+from app.modules.contests.models import Submission, Task, TestCase
+from app.modules.contests.judge import LANGUAGES
 from app.modules.results import service as results_service
 
 
@@ -46,11 +48,20 @@ def _get_task(db: Session, competition_id: UUID, task_id: UUID) -> Task:
 
 
 def create_task(
-    db: Session, competition_port: CompetitionPort, competition_id: UUID, title: str, statement: str, max_score: int
+    db: Session, competition_port: CompetitionPort, competition_id: UUID, title: str, statement: str, max_score: int,
+    judging_mode: str = "manual", test_cases: list[tuple[str, str]] | None = None,
+    time_limit_seconds: int = 15, memory_limit_mb: int = 128, visible_test_count: int = 2,
 ) -> Task:
     _ensure_draft(competition_port.get_competition_status(competition_id, db))
+    _validate_test_cases(judging_mode, test_cases or [])
     order_index = db.scalar(select(func.count()).select_from(Task).where(Task.competition_id == competition_id)) or 0
-    task = Task(competition_id=competition_id, title=title, statement=statement, max_score=max_score, order_index=order_index)
+    task = Task(
+        competition_id=competition_id, title=title, statement=statement, max_score=max_score, order_index=order_index,
+        judging_mode=judging_mode, time_limit_seconds=time_limit_seconds, memory_limit_mb=memory_limit_mb,
+        visible_test_count=visible_test_count,
+        test_cases=[TestCase(order_index=index, input_data=stdin, expected_output=stdout)
+                    for index, (stdin, stdout) in enumerate(test_cases or [])],
+    )
     db.add(task)
     db.commit()
     db.refresh(task)
@@ -65,6 +76,11 @@ def update_task(
     title: str | None,
     statement: str | None,
     max_score: int | None,
+    judging_mode: str | None = None,
+    test_cases: list[tuple[str, str]] | None = None,
+    time_limit_seconds: int | None = None,
+    memory_limit_mb: int | None = None,
+    visible_test_count: int | None = None,
 ) -> Task:
     _ensure_draft(competition_port.get_competition_status(competition_id, db))
     task = _get_task(db, competition_id, task_id)
@@ -74,6 +90,21 @@ def update_task(
         task.statement = statement
     if max_score is not None:
         task.max_score = max_score
+    if judging_mode is not None:
+        task.judging_mode = judging_mode
+    if time_limit_seconds is not None:
+        task.time_limit_seconds = time_limit_seconds
+    if memory_limit_mb is not None:
+        task.memory_limit_mb = memory_limit_mb
+    if visible_test_count is not None:
+        task.visible_test_count = visible_test_count
+    if test_cases is not None:
+        for old_case in task.test_cases:
+            db.delete(old_case)
+        db.flush()  # Free the unique (task_id, order_index) values before inserting replacements.
+        task.test_cases = [TestCase(order_index=index, input_data=stdin, expected_output=stdout)
+                           for index, (stdin, stdout) in enumerate(test_cases)]
+    _validate_test_cases(task.judging_mode, task.test_cases)
     db.commit()
     db.refresh(task)
     return task
@@ -93,6 +124,13 @@ def list_tasks(db: Session, competition_port: CompetitionPort, competition_id: U
     return list(db.scalars(select(Task).where(Task.competition_id == competition_id).order_by(Task.order_index, Task.id)).all())
 
 
+def _validate_test_cases(judging_mode: str, test_cases: list) -> None:
+    if judging_mode == "code" and not test_cases:
+        raise ApiError(422, "VALIDATION_ERROR", "Для программной задачи добавьте хотя бы один тест.")
+    if judging_mode == "manual" and test_cases:
+        raise ApiError(422, "VALIDATION_ERROR", "Тесты доступны только для программной задачи.")
+
+
 # ---------- Решения (спортсмен) ----------
 
 
@@ -104,11 +142,19 @@ def submit_solution(
     task_id: UUID,
     kind: str,
     content: str,
+    language: str | None = None,
 ) -> Submission:
     timing = competition_port.get_competition_timing(competition_id, db)
     if timing is None:
         raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
     task = _get_task(db, competition_id, task_id)
+    if task.judging_mode == "code":
+        if not get_settings().judge_enabled:
+            raise ApiError(503, "JUDGE_UNAVAILABLE", "Проверка кода пока не подключена.")
+        if kind != "code" or language not in LANGUAGES:
+            raise ApiError(422, "VALIDATION_ERROR", "Выберите поддерживаемый язык и отправьте код.")
+    elif kind == "code" or language is not None:
+        raise ApiError(422, "VALIDATION_ERROR", "Это задание проверяется организатором вручную.")
     if timing.status != "published":
         raise ApiError(409, "INVALID_STATE", "Приём решений закрыт: соревнование не опубликовано или уже завершено.")
     now = _now()
@@ -131,6 +177,15 @@ def submit_solution(
         submission.submitted_at = now
         submission.score = None
         submission.graded_at = None
+    submission.language = language
+    submission.verdict = "queued" if kind == "code" else None
+    submission.failed_test_index = None
+    submission.time_ms = None
+    submission.memory_kb = None
+    submission.judge_details = None
+    submission.judge_message = None
+    submission.judge_token = uuid4() if kind == "code" else None
+    submission.judge_started_at = None
     db.commit()
     db.refresh(submission)
     return submission
@@ -188,6 +243,8 @@ def grade_submission(
     if row is None:
         raise ApiError(404, "NOT_FOUND", "Решение не найдено.")
     submission, task = row
+    if task.judging_mode == "code":
+        raise ApiError(409, "INVALID_STATE", "Программное решение оценивается автоматически.")
     if not (0 <= score <= task.max_score):
         raise ApiError(422, "VALIDATION_ERROR", f"Балл должен быть от 0 до {task.max_score}.")
     submission.score = score

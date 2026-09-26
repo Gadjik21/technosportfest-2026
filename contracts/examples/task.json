@@ -4,5 +4,11 @@
   "title": "Сумма двух чисел",
   "statement": "Считайте два целых числа и выведите их сумму.",
   "maxScore": 100,
-  "orderIndex": 0
+  "orderIndex": 0,
+  "judgingMode": "manual",
+  "timeLimitSeconds": 15,
+  "memoryLimitMb": 128,
+  "visibleTestCount": 2,
+  "testCaseCount": 0,
+  "testCases": []
 }

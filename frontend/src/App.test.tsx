@@ -124,6 +124,25 @@ describe("основной путь MVP", () => {
     expect(calls).toContainEqual({ path: "/competitions/c1/results/publish", method: "POST", body: undefined });
     expect(await screen.findByText("100")).toBeTruthy();
   });
+
+  it("показывает спортсмену вердикт и номер скрытого теста без его данных", async () => {
+    const now = Date.now();
+    const runningCompetition = { ...competition, viewerRegistrationId: "r1", startsAt: new Date(now - 3600000).toISOString(), endsAt: new Date(now + 3600000).toISOString() };
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const path = apiPath(url);
+      if (path === "/auth/me") return json(athlete);
+      if (path === "/competitions/c1") return json(runningCompetition);
+      if (path === "/competitions/c1/results") return json(page([]));
+      if (path === "/competitions/c1/tasks") return json([{ id: "t1", competitionId: "c1", title: "Сумма", statement: "Сложите числа", maxScore: 100, orderIndex: 0, judgingMode: "code", timeLimitSeconds: 15, memoryLimitMb: 128, visibleTestCount: 1, testCaseCount: 2, testCases: [{ input: "1 2", expectedOutput: "3" }] }]);
+      if (path === "/competitions/c1/my-submissions") return json([{ id: "s1", taskId: "t1", registrationId: "r1", kind: "code", content: "print(0)", language: "python", submittedAt: new Date(now).toISOString(), score: 0, gradedAt: new Date(now).toISOString(), verdict: "wrong_answer", failedTestIndex: 2, timeMs: 42, memoryKb: 1024, testResults: [{ index: 1, verdict: "accepted", timeMs: 20, memoryKb: 1000, actualOutput: "3", stderr: "" }, { index: 2, verdict: "wrong_answer", timeMs: 22, memoryKb: 1024, actualOutput: null, stderr: null }], judgeMessage: null }]);
+      throw new Error(`Unexpected ${path}`);
+    }));
+    window.history.replaceState({}, "", "/competitions/c1");
+    render(<App />);
+    expect(await screen.findByText("Неверный ответ на тесте 2")).toBeTruthy();
+    expect(screen.getByText("Пример теста 1")).toBeTruthy();
+    expect(screen.queryByText("hidden input")).toBeNull();
+  });
 });
 
 describe("динамические роли", () => {

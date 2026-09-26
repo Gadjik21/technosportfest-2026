@@ -31,6 +31,25 @@ class TaskCreateRequest(BaseModel):
     title: str = Field(min_length=2, max_length=200)
     statement: str = Field(min_length=1, max_length=10000)
     maxScore: int = Field(ge=1, le=1000)
+    judgingMode: Literal["manual", "code"] = "manual"
+    testCases: list["TestCaseInput"] = Field(default_factory=list, max_length=50)
+    timeLimitSeconds: int = Field(default=15, ge=1, le=60)
+    memoryLimitMb: int = Field(default=128, ge=32, le=512)
+    visibleTestCount: int = Field(default=2, ge=0, le=50)
+
+    @model_validator(mode="after")
+    def _check_cases(self) -> "TaskCreateRequest":
+        if self.judgingMode == "code" and not self.testCases:
+            raise ValueError("Для программной задачи добавьте хотя бы один тест.")
+        if self.judgingMode == "manual" and self.testCases:
+            raise ValueError("Тесты доступны только для программной задачи.")
+        return self
+
+
+class TestCaseInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    input: str = Field(max_length=8192)
+    expectedOutput: str = Field(max_length=8192)
 
 
 class TaskPatchRequest(BaseModel):
@@ -38,10 +57,16 @@ class TaskPatchRequest(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=200)
     statement: str | None = Field(default=None, min_length=1, max_length=10000)
     maxScore: int | None = Field(default=None, ge=1, le=1000)
+    judgingMode: Literal["manual", "code"] | None = None
+    testCases: list[TestCaseInput] | None = Field(default=None, max_length=50)
+    timeLimitSeconds: int | None = Field(default=None, ge=1, le=60)
+    memoryLimitMb: int | None = Field(default=None, ge=32, le=512)
+    visibleTestCount: int | None = Field(default=None, ge=0, le=50)
 
     @model_validator(mode="after")
     def _at_least_one_field(self) -> "TaskPatchRequest":
-        if self.title is None and self.statement is None and self.maxScore is None:
+        if all(value is None for value in (self.title, self.statement, self.maxScore, self.judgingMode,
+                                          self.testCases, self.timeLimitSeconds, self.memoryLimitMb, self.visibleTestCount)):
             raise ValueError("Нужно передать хотя бы одно поле.")
         return self
 
@@ -53,12 +78,28 @@ class TaskResponse(BaseModel):
     statement: str
     maxScore: int
     orderIndex: int
+    judgingMode: str
+    timeLimitSeconds: int
+    memoryLimitMb: int
+    visibleTestCount: int
+    testCaseCount: int
+    testCases: list[TestCaseInput]
 
 
 class SubmissionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["text", "link"]
+    kind: Literal["text", "link", "code"]
     content: str = Field(min_length=1, max_length=10000)
+    language: Literal["python", "javascript", "go", "java", "kotlin", "cpp", "rust"] | None = None
+
+
+class TestResultResponse(BaseModel):
+    index: int
+    verdict: str
+    timeMs: int | None = None
+    memoryKb: int | None = None
+    actualOutput: str | None = None
+    stderr: str | None = None
 
 
 class SubmissionResponse(BaseModel):
@@ -70,6 +111,13 @@ class SubmissionResponse(BaseModel):
     submittedAt: str
     score: int | None
     gradedAt: str | None
+    language: str | None
+    verdict: str | None
+    failedTestIndex: int | None
+    timeMs: int | None
+    memoryKb: int | None
+    testResults: list[TestResultResponse]
+    judgeMessage: str | None
 
 
 class GradingSubmissionResponse(SubmissionResponse):
@@ -110,13 +158,19 @@ class StandingsResponse(BaseModel):
     items: list[StandingsRowResponse]
 
 
-def _task_response(task: Task) -> TaskResponse:
+def _task_response(task: Task, is_organizer: bool = False) -> TaskResponse:
+    cases = task.test_cases if is_organizer else task.test_cases[:task.visible_test_count]
     return TaskResponse(
-        id=task.id, competitionId=task.competition_id, title=task.title, statement=task.statement, maxScore=task.max_score, orderIndex=task.order_index
+        id=task.id, competitionId=task.competition_id, title=task.title, statement=task.statement, maxScore=task.max_score,
+        orderIndex=task.order_index, judgingMode=task.judging_mode, timeLimitSeconds=task.time_limit_seconds,
+        memoryLimitMb=task.memory_limit_mb, visibleTestCount=task.visible_test_count,
+        testCaseCount=len(task.test_cases),
+        testCases=[TestCaseInput(input=case.input_data, expectedOutput=case.expected_output) for case in cases],
     )
 
 
-def _submission_response(submission: Submission) -> SubmissionResponse:
+def _submission_response(submission: Submission, task: Task, is_organizer: bool = False) -> SubmissionResponse:
+    details = submission.judge_details or []
     return SubmissionResponse(
         id=submission.id,
         taskId=submission.task_id,
@@ -126,6 +180,14 @@ def _submission_response(submission: Submission) -> SubmissionResponse:
         submittedAt=iso_z(submission.submitted_at),
         score=submission.score,
         gradedAt=iso_z(submission.graded_at) if submission.graded_at else None,
+        language=submission.language, verdict=submission.verdict, failedTestIndex=submission.failed_test_index,
+        timeMs=submission.time_ms, memoryKb=submission.memory_kb, judgeMessage=submission.judge_message,
+        testResults=[TestResultResponse(**{
+            "index": item["index"], "verdict": item["verdict"], "timeMs": item.get("timeMs"),
+            "memoryKb": item.get("memoryKb"),
+            "actualOutput": item.get("actualOutput") if is_organizer or item["index"] <= task.visible_test_count else None,
+            "stderr": item.get("stderr") if is_organizer or item["index"] <= task.visible_test_count else None,
+        }) for item in details],
     )
 
 
@@ -142,7 +204,7 @@ def list_tasks(
     principal = optional_principal(request)
     is_organizer = principal is not None and principal.has("contests.tasks")
     tasks = service.list_tasks(db, competition_port, competitionId, is_organizer)
-    return [_task_response(t) for t in tasks]
+    return [_task_response(t, is_organizer) for t in tasks]
 
 
 @router.get("/competitions/{competitionId}/standings", response_model=StandingsResponse)
@@ -174,8 +236,10 @@ def create_task(
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> TaskResponse:
-    task = service.create_task(db, competition_port, competitionId, body.title, body.statement, body.maxScore)
-    return _task_response(task)
+    task = service.create_task(db, competition_port, competitionId, body.title, body.statement, body.maxScore,
+                               body.judgingMode, [(case.input, case.expectedOutput) for case in body.testCases],
+                               body.timeLimitSeconds, body.memoryLimitMb, body.visibleTestCount)
+    return _task_response(task, True)
 
 
 @router.patch("/competitions/{competitionId}/tasks/{taskId}", response_model=TaskResponse)
@@ -187,8 +251,10 @@ def update_task(
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> TaskResponse:
-    task = service.update_task(db, competition_port, competitionId, taskId, body.title, body.statement, body.maxScore)
-    return _task_response(task)
+    task = service.update_task(db, competition_port, competitionId, taskId, body.title, body.statement, body.maxScore,
+                               body.judgingMode, None if body.testCases is None else [(case.input, case.expectedOutput) for case in body.testCases],
+                               body.timeLimitSeconds, body.memoryLimitMb, body.visibleTestCount)
+    return _task_response(task, True)
 
 
 @router.delete("/competitions/{competitionId}/tasks/{taskId}", status_code=204)
@@ -214,8 +280,8 @@ def submit_solution(
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> SubmissionResponse:
-    submission = service.submit_solution(db, competition_port, competitionId, principal.user_id, taskId, body.kind, body.content)
-    return _submission_response(submission)
+    submission = service.submit_solution(db, competition_port, competitionId, principal.user_id, taskId, body.kind, body.content, body.language)
+    return _submission_response(submission, db.get(Task, taskId))
 
 
 @router.get("/competitions/{competitionId}/my-submissions", response_model=list[SubmissionResponse])
@@ -226,7 +292,7 @@ def list_my_submissions(
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> list[SubmissionResponse]:
     submissions = service.list_my_submissions(db, competition_port, competitionId, principal.user_id)
-    return [_submission_response(s) for s in submissions]
+    return [_submission_response(s, db.get(Task, s.task_id)) for s in submissions]
 
 
 # ---------- Проверка организатором ----------
@@ -242,7 +308,7 @@ def list_submissions_for_grading(
     rows = service.list_submissions_for_grading(db, competition_port, competitionId)
     return [
         GradingSubmissionResponse(
-            **_submission_response(row.submission).model_dump(),
+            **_submission_response(row.submission, row.task, True).model_dump(),
             taskTitle=row.task.title,
             taskMaxScore=row.task.max_score,
             athleteFullName=row.athlete_full_name,
@@ -261,7 +327,7 @@ def grade_submission(
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> SubmissionResponse:
     submission = service.grade_submission(db, competition_port, competitionId, submissionId, body.score)
-    return _submission_response(submission)
+    return _submission_response(submission, db.get(Task, submission.task_id), True)
 
 
 # ---------- Завершение контеста ----------

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     app_origins: str = "http://localhost:5173,http://localhost:8000"
     cookie_secure: bool = False
     jwt_ttl_hours: int = Field(default=24, ge=1, le=168)
+    judge_enabled: bool = False
 
     @property
     def allowed_origins(self) -> set[str]:
