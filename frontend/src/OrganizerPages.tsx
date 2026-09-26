@@ -230,6 +230,7 @@ export function ManageDocuments() {
 }
 
 type MailingDraft = { id: string; subject: string; preheader: string; audience: string; locality: string; education: string; disciplineId: string; body: string; updatedAt: string };
+const newMailingDraftId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const mailingAudiences = [
   ["all", "Все зарегистрированные пользователи"],
   ["athlete", "Спортсмены"],
@@ -255,7 +256,7 @@ export function ManageMailings({ userId }: { userId: string }) {
     window.localStorage.setItem(storageKey, JSON.stringify(next));
   }
   function create() {
-    setForm({ id: crypto.randomUUID(), subject: "", preheader: "", audience: "all", locality: "", education: "", disciplineId: "", body: "", updatedAt: new Date().toISOString() });
+    setForm({ id: newMailingDraftId(), subject: "", preheader: "", audience: "all", locality: "", education: "", disciplineId: "", body: "", updatedAt: new Date().toISOString() });
     setPreview(false); setNotice(""); window.scrollTo(0, 0);
   }
   function edit(draft: MailingDraft) { setForm({ ...draft, locality: draft.locality ?? "", education: draft.education ?? "", disciplineId: draft.disciplineId ?? "", audience: draft.audience === "athletes" ? "athlete" : draft.audience === "organizers" ? "organizer" : draft.audience }); setPreview(false); setNotice(""); window.scrollTo(0, 0); }
@@ -277,7 +278,7 @@ export function ManageMailings({ userId }: { userId: string }) {
     persist(drafts.filter(item => item.id !== draft.id)); setNotice("Черновик удалён.");
   }
 
-  return <><PageTitle eyebrow="MASTER ADMIN" title="Рассылки" description="Подготовьте письмо и выберите аудиторию. Пока рассылки сохраняются только как черновики в этом браузере." action={!form && <button className="button" onClick={create}>+ Новая рассылка</button>} />
+  return <><PageTitle eyebrow="MASTER ADMIN" title="Рассылки" description="Подготовьте письмо и выберите аудиторию. Пока рассылки сохраняются только как черновики в этом браузере." action={!form && <button className="button" type="button" onClick={create}>+ Новая рассылка</button>} />
     <Notice success={notice} />
     {form && <form className="card form-card mailing-form" onSubmit={save}>
       <div className="section-heading"><h2>{drafts.some(item => item.id === form.id) ? "Изменить черновик" : "Новая рассылка"}</h2><button className="text-link" type="button" onClick={() => setPreview(value => !value)}>{preview ? "Редактировать" : "Предпросмотр"}</button></div>
