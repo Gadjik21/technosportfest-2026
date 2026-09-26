@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { api, type Competition, type Discipline, type Document, type News, type User } from "./api";
-import { Empty, Link, LoadState, Notice, PageTitle, Pager, Status, date, dateTime, errorMessage, go, useLoad } from "./ui";
+import { api, type Competition, type Discipline, type Document, type News, type Submission, type Task, type User } from "./api";
+import { Empty, Link, LoadState, Notice, PageTitle, Pager, Status, date, dateTime, errorMessage, go, goBack, useLoad } from "./ui";
 
 export function CompetitionCard({ competition }: { competition: Competition }) {
   return <article className="card competition-card">
@@ -8,6 +8,7 @@ export function CompetitionCard({ competition }: { competition: Competition }) {
     <h3><Link to={`/competitions/${competition.id}`}>{competition.title}</Link></h3>
     <p className="muted clamp">{competition.description}</p>
     <div className="card-meta"><span>◷ {date(competition.startsAt)}</span><span>◈ {competition.format === "online" ? "Онлайн" : "Очно"}</span></div>
+    {competition.viewerRegistrationId && <span className="status status-registered">✓ Вы зарегистрированы</span>}
     <Link className="text-link" to={`/competitions/${competition.id}`}>Подробнее <span aria-hidden>↗</span></Link>
   </article>;
 }
@@ -38,6 +39,9 @@ export function Competitions() {
 export function CompetitionDetail({ id, user }: { id: string; user: User | null }) {
   const competition = useLoad(() => api.competition(id), `competition-${id}`);
   const results = useLoad(() => api.results(id), `competition-results-${id}-${competition.data?.status}`);
+  const tasks = useLoad(() => (competition.data && competition.data.status !== "draft" ? api.tasks(id) : Promise.resolve([] as Task[])), `competition-tasks-${id}-${competition.data?.status}`);
+  const isRegisteredAthlete = user?.role === "athlete" && !!competition.data?.viewerRegistrationId;
+  const mySubmissions = useLoad(() => (isRegisteredAthlete && tasks.data?.length ? api.mySubmissions(id) : Promise.resolve([] as Submission[])), `my-submissions-${id}-${isRegisteredAthlete}-${tasks.data?.length ?? 0}`);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -47,12 +51,37 @@ export function CompetitionDetail({ id, user }: { id: string; user: User | null 
     catch (reason) { setError(errorMessage(reason)); }
     finally { setBusy(false); }
   }
+  const backTo = user?.role === "athlete" ? "/cabinet/competitions" : "/competitions";
+  const now = Date.now();
+  const hasTasks = !!tasks.data?.length;
+  const started = !!competition.data && new Date(competition.data.startsAt).getTime() <= now;
+  const ended = !!competition.data && new Date(competition.data.endsAt).getTime() <= now;
+  const isOngoing = !!competition.data && competition.data.status === "published" && started && !ended;
+  const unavailableReason = !isRegisteredAthlete ? "Доступно только зарегистрированным участникам." : !started ? `Приём решений откроется ${dateTime(competition.data?.startsAt ?? "")}.` : ended ? "Приём решений закрыт — соревнование завершилось." : "Отправка решений сейчас недоступна.";
   return <LoadState loading={competition.loading} error={competition.error}>{competition.data && <>
-    <div className="breadcrumb"><Link to="/competitions">Соревнования</Link><span>/</span>{competition.data.title}</div>
+    <div className="breadcrumb"><a href={backTo} onClick={event => { event.preventDefault(); goBack(backTo); }}>Соревнования</a><span>/</span>{competition.data.title}</div>
     <div className="detail-grid"><div><div className="card detail-main"><div className="card-top"><span className="category">{competition.data.discipline.name}</span><Status value={competition.data.status} /></div><h1>{competition.data.title}</h1><p className="lead">{competition.data.description}</p><div className="info-grid"><div><small>Дата начала</small><strong>{dateTime(competition.data.startsAt)}</strong></div><div><small>Дата окончания</small><strong>{dateTime(competition.data.endsAt)}</strong></div><div><small>Формат</small><strong>{competition.data.format === "online" ? "Онлайн" : "Очно"}</strong></div><div><small>Регистрация до</small><strong>{dateTime(competition.data.registrationDeadline)}</strong></div></div></div>
-    {competition.data.status === "completed" && <section className="card"><h2>Результаты</h2><LoadState loading={results.loading} error={results.error}>{results.data?.items.length ? <div className="table-wrap"><table><thead><tr><th>Место</th><th>Спортсмен</th><th>Результат</th><th>Очки</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td>{item.scoreText || "—"}</td><td><strong>{item.points}</strong></td></tr>)}</tbody></table></div> : <Empty>Опубликованных результатов пока нет.</Empty>}</LoadState></section>}</div>
-    <aside className="card action-card"><span className="eyebrow">УЧАСТИЕ</span><h2>Готов к старту?</h2><p>Подай заявку и отслеживай результат в личном кабинете.</p><Notice error={error} success={success} />{competition.data.viewerRegistrationId ? <div className="notice notice-success">Вы уже зарегистрированы</div> : user?.role === "athlete" && competition.data.registrationOpen ? <button className="button" disabled={busy} onClick={register}>{busy ? "Отправляем…" : "Подать заявку"}</button> : !user && competition.data.registrationOpen ? <Link className="button" to={`/login?next=${encodeURIComponent(`/competitions/${id}`)}`}>Войти для регистрации</Link> : <div className="muted">{competition.data.registrationOpen ? "Регистрация доступна спортсменам." : "Регистрация закрыта."}</div>}</aside></div>
+    {competition.data.status === "completed" && <section className="card"><h2>Результаты</h2><LoadState loading={results.loading} error={results.error}>{results.data?.items.length ? <div className="table-wrap"><table><thead><tr><th>Место</th><th>Спортсмен</th><th>Результат</th><th>Очки</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td>{item.scoreText || "—"}</td><td><strong>{item.points}</strong></td></tr>)}</tbody></table></div> : <Empty>Опубликованных результатов пока нет.</Empty>}</LoadState></section>}
+    {hasTasks && <section id="tasks"><h2>Задания</h2>{isRegisteredAthlete && !isOngoing && <p className="muted">{unavailableReason}</p>}<div className="task-list">{tasks.data!.map(task => <TaskSubmissionForm key={task.id} competitionId={id} task={task} submission={mySubmissions.data?.find(item => item.taskId === task.id)} canSubmit={isRegisteredAthlete && isOngoing} unavailableReason={unavailableReason} onSaved={() => mySubmissions.reload()} />)}</div></section>}</div>
+    <aside className="card action-card"><span className="eyebrow">УЧАСТИЕ</span><h2>Готов к старту?</h2><p>Подай заявку и отслеживай результат в личном кабинете.</p><Notice error={error} success={success} />{competition.data.viewerRegistrationId ? <div className="notice notice-success">Вы уже зарегистрированы{hasTasks && (isOngoing ? <> — <a href="#tasks">задания открыты, отправляйте решения ↓</a></> : !started ? <> Задания откроются {dateTime(competition.data.startsAt)}.</> : ended ? <> Приём решений закрыт, ждите результат.</> : null)}</div> : user?.role === "athlete" && competition.data.registrationOpen ? <button className="button" disabled={busy} onClick={register}>{busy ? "Отправляем…" : "Подать заявку"}</button> : !user && competition.data.registrationOpen ? <Link className="button" to={`/login?next=${encodeURIComponent(`/competitions/${id}`)}`}>Войти для регистрации</Link> : <div className="muted">{competition.data.registrationOpen ? "Регистрация доступна спортсменам." : "Регистрация закрыта."}</div>}</aside></div>
   </>}</LoadState>;
+}
+
+function TaskSubmissionForm({ competitionId, task, submission, canSubmit, unavailableReason, onSaved }: { competitionId: string; task: Task; submission: Submission | undefined; canSubmit: boolean; unavailableReason: string; onSaved: () => void }) {
+  const [kind, setKind] = useState<"text" | "link">(submission?.kind ?? "text");
+  const [content, setContent] = useState(submission?.content ?? "");
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(""); setSuccess("");
+    try { await api.submitSolution(competitionId, task.id, { kind, content }); setSuccess("Решение отправлено."); onSaved(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
+  }
+  return <div className="card">
+    <div className="card-top"><strong>{task.title}</strong><span className="category">макс. {task.maxScore}</span></div>
+    <p className="muted">{task.statement}</p>
+    {submission && (submission.score !== null ? <div className="notice notice-success">Оценено: {submission.score} из {task.maxScore}</div> : <div className="notice">Решение отправлено, ждёт проверки организатора.</div>)}
+    {canSubmit ? <form onSubmit={submit}><Notice error={error} success={success} /><label>Тип ответа <select value={kind} onChange={event => setKind(event.target.value as "text" | "link")}><option value="text">Текст</option><option value="link">Ссылка</option></select></label><label>{kind === "link" ? "Ссылка на решение" : "Ответ"} <textarea required rows={kind === "link" ? 1 : 5} maxLength={10000} value={content} onChange={event => setContent(event.target.value)} /></label><button className="button" disabled={busy}>{busy ? "Отправляем…" : submission ? "Отправить заново" : "Отправить решение"}</button></form> : !submission && <p className="muted">{unavailableReason}</p>}
+  </div>;
 }
 
 export function Ratings() {

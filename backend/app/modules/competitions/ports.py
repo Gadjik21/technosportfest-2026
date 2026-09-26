@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -10,6 +11,13 @@ class ParticipantSummary:
     registration_id: UUID
     athlete_id: UUID
     full_name: str
+
+
+@dataclass(frozen=True)
+class CompetitionTiming:
+    status: str
+    starts_at: datetime
+    ends_at: datetime
 
 
 class CompetitionPort(Protocol):
@@ -45,5 +53,24 @@ class CompetitionPort(Protocol):
         Добавлено Б2 для `GET /competitions/{id}/results`: публичный список
         результатов должен отдавать 404 для черновика соревнования, а Results
         не хранит статус соревнования у себя. TODO(Б1): реализовать.
+        """
+        ...
+
+    def get_registration_by_athlete(self, competition_id: UUID, athlete_id: UUID, db: Session) -> ParticipantSummary | None:
+        """Заявка спортсмена на конкретное соревнование, если она есть, иначе None.
+
+        Добавлено для модуля Contests (кейс №2): спортсмен отправляет решение
+        по `competitionId` из URL и своему `principal.user_id`, а не по
+        `registrationId` — в отличие от организаторских маршрутов Results.
+        """
+        ...
+
+    def get_competition_timing(self, competition_id: UUID, db: Session) -> CompetitionTiming | None:
+        """Статус и временное окно соревнования, или None, если не найдено.
+
+        Добавлено для модуля Contests: приём решений разрешён только пока
+        `published` и `starts_at <= now < ends_at`; отдельного статуса
+        «идёт» в БД нет — вычисляется на лету, чтобы не трогать общий
+        контракт `competitions.status`.
         """
         ...

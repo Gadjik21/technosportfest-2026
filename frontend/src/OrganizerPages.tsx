@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { api, type Competition, type Document, type News, type Page, type Participant, type ResultDraft } from "./api";
+import { api, type Competition, type Document, type News, type Page, type Participant, type ResultDraft, type SubmissionForGrading, type Task } from "./api";
 import { ConfirmDialog, Empty, Link, LoadState, Notice, PageTitle, Status, date, errorMessage, go, useLoad } from "./ui";
 
 async function allPages<T>(getPage: (page: number) => Promise<Page<T>>): Promise<T[]> {
@@ -49,16 +49,98 @@ export function NewCompetition() { return <><PageTitle eyebrow="ОРГАНИЗА
 
 export function ManageCompetition({ id }: { id: string }) {
   const competition = useLoad(() => api.competition(id), `manage-competition-${id}`);
-  const [tab, setTab] = useState<"participants" | "details">("participants");
+  const tasks = useLoad(() => api.tasks(id), `manage-tasks-${id}`);
+  const [tab, setTab] = useState<"participants" | "tasks" | "details">("participants");
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  const hasTasks = !!tasks.data?.length;
   async function publish() {
     setShowPublishConfirm(false);
     setBusy(true); setError("");
     try { await api.publishCompetition(id); setSuccess("Соревнование опубликовано."); competition.reload(); }
     catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
   }
-  return <LoadState loading={competition.loading} error={competition.error}>{competition.data && <><div className="breadcrumb"><Link to="/manage/competitions">Соревнования</Link><span>/</span>{competition.data.title}</div><PageTitle eyebrow="УПРАВЛЕНИЕ СОРЕВНОВАНИЕМ" title={competition.data.title} description={`${competition.data.discipline.name} · ${date(competition.data.startsAt)}`} action={<Status value={competition.data.status} />} /><Notice error={error} success={success} />{competition.data.status === "draft" && <div className="callout"><div><strong>Черновик виден только организаторам.</strong><p>Проверьте даты, дисциплину и описание перед публикацией.</p></div><button className="button" disabled={busy} onClick={() => setShowPublishConfirm(true)}>Опубликовать</button></div>}{showPublishConfirm && <ConfirmDialog title="Опубликовать соревнование?" confirmLabel="Опубликовать" onCancel={() => setShowPublishConfirm(false)} onConfirm={publish}>Спортсмены увидят карточку и смогут подать заявку.</ConfirmDialog>}<div className="tabs"><button className={tab === "participants" ? "active" : ""} onClick={() => setTab("participants")}>Участники и результаты</button><button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>Параметры</button></div>{tab === "details" ? competition.data.status === "draft" ? <CompetitionForm competition={competition.data} onSaved={() => { setSuccess("Соревнование сохранено."); competition.reload(); }} /> : <div className="card form-card"><p>После публикации параметры соревнования не редактируются.</p><Link className="button button-secondary" to={`/competitions/${id}`}>Открыть карточку</Link></div> : <ParticipantsAndResults competition={competition.data} onPublished={competition.reload} />}</>}</LoadState>;
+  return <LoadState loading={competition.loading} error={competition.error}>{competition.data && <><div className="breadcrumb"><Link to="/manage/competitions">Соревнования</Link><span>/</span>{competition.data.title}</div><PageTitle eyebrow="УПРАВЛЕНИЕ СОРЕВНОВАНИЕМ" title={competition.data.title} description={`${competition.data.discipline.name} · ${date(competition.data.startsAt)}`} action={<Status value={competition.data.status} />} /><Notice error={error} success={success} />{competition.data.status === "draft" && <div className="callout"><div><strong>Черновик виден только организаторам.</strong><p>Проверьте даты, дисциплину, описание и задания (если это контест) перед публикацией.</p></div><button className="button" disabled={busy} onClick={() => setShowPublishConfirm(true)}>Опубликовать</button></div>}{showPublishConfirm && <ConfirmDialog title="Опубликовать соревнование?" confirmLabel="Опубликовать" onCancel={() => setShowPublishConfirm(false)} onConfirm={publish}>Спортсмены увидят карточку и смогут подать заявку.</ConfirmDialog>}<div className="tabs"><button className={tab === "participants" ? "active" : ""} onClick={() => setTab("participants")}>Участники и результаты</button><button className={tab === "tasks" ? "active" : ""} onClick={() => setTab("tasks")}>Задания{hasTasks ? ` (${tasks.data!.length})` : ""}</button><button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>Параметры</button></div>{tab === "details" ? competition.data.status === "draft" ? <CompetitionForm competition={competition.data} onSaved={() => { setSuccess("Соревнование сохранено."); competition.reload(); }} /> : <div className="card form-card"><p>После публикации параметры соревнования не редактируются.</p><Link className="button button-secondary" to={`/competitions/${id}`}>Открыть карточку</Link></div> : tab === "tasks" ? <ManageTasks competition={competition.data} tasks={tasks} /> : hasTasks ? <ContestGrading competition={competition.data} onFinished={() => { competition.reload(); tasks.reload(); }} /> : <ParticipantsAndResults competition={competition.data} onPublished={competition.reload} />}</>}</LoadState>;
+}
+
+function ManageTasks({ competition, tasks }: { competition: Competition; tasks: { data: Task[] | null; loading: boolean; error: string; reload: () => void } }) {
+  const isDraft = competition.status === "draft";
+  const [form, setForm] = useState<{ title: string; statement: string; maxScore: string } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  function startCreate() { setEditingId(null); setForm({ title: "", statement: "", maxScore: "100" }); setError(""); setSuccess(""); }
+  function startEdit(task: Task) { setEditingId(task.id); setForm({ title: task.title, statement: task.statement, maxScore: String(task.maxScore) }); setError(""); setSuccess(""); }
+  async function submit(event: FormEvent) {
+    event.preventDefault(); if (!form) return;
+    const maxScore = Number(form.maxScore);
+    if (!Number.isInteger(maxScore) || maxScore < 1) { setError("Максимальный балл должен быть целым числом от 1."); return; }
+    setBusy(true); setError(""); setSuccess("");
+    try {
+      if (editingId) await api.updateTask(competition.id, editingId, { title: form.title, statement: form.statement, maxScore });
+      else await api.createTask(competition.id, { title: form.title, statement: form.statement, maxScore });
+      setSuccess(editingId ? "Задание обновлено." : "Задание добавлено."); setForm(null); setEditingId(null); tasks.reload();
+    } catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
+  }
+  async function remove(taskId: string) {
+    setBusy(true); setError(""); setSuccess("");
+    try { await api.deleteTask(competition.id, taskId); tasks.reload(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
+  }
+  return <>
+    <div className="section-heading"><div><h2>Задания</h2><p className="muted">{isDraft ? "Пока черновик — задания можно добавлять, менять и удалять. Если добавить хотя бы одно, после публикации соревнование станет контестом с приёмом решений." : "После публикации задания менять нельзя."}</p></div>{isDraft && !form && <button className="button" onClick={startCreate}>+ Добавить задание</button>}</div>
+    <Notice error={error} success={success} />
+    {form && <form className="card form-card" onSubmit={submit}><label>Название <input required minLength={2} maxLength={200} value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} /></label><label>Условие <textarea required rows={5} maxLength={10000} value={form.statement} onChange={event => setForm({ ...form, statement: event.target.value })} /></label><label>Максимальный балл <input required type="number" min="1" max="1000" value={form.maxScore} onChange={event => setForm({ ...form, maxScore: event.target.value })} /></label><div className="form-actions"><button className="button" disabled={busy}>{busy ? "Сохраняем…" : editingId ? "Сохранить" : "Добавить"}</button><button type="button" className="button button-secondary" onClick={() => { setForm(null); setEditingId(null); }}>Отмена</button></div></form>}
+    <LoadState loading={tasks.loading} error={tasks.error}>{tasks.data?.length ? <div className="card list-card">{tasks.data.map(task => <div className="list-row" key={task.id}><div><strong>{task.title}</strong><small>Макс. балл: {task.maxScore}</small></div>{isDraft && <div className="form-actions"><button className="text-link" onClick={() => startEdit(task)}>Изменить</button><button className="text-link" onClick={() => remove(task.id)}>Удалить</button></div>}</div>)}</div> : <Empty>{isDraft ? "Заданий пока нет. Без заданий это обычное соревнование — результаты вносятся вручную." : "Заданий нет."}</Empty>}</LoadState>
+  </>;
+}
+
+function ContestGrading({ competition, onFinished }: { competition: Competition; onFinished: () => void }) {
+  const id = competition.id;
+  const participants = useLoad(() => allPages(page => api.participants(id, page)), `contest-participants-${id}`);
+  const submissions = useLoad(() => api.submissionsForGrading(id), `contest-submissions-${id}-${competition.status}`);
+  const results = useLoad(() => api.results(id), `contest-results-${id}-${competition.status}`);
+  const [scores, setScores] = useState<Record<string, string>>({});
+  const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [busyId, setBusyId] = useState(""); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  const getScore = (submission: SubmissionForGrading) => scores[submission.id] ?? (submission.score ?? "").toString();
+  async function grade(submission: SubmissionForGrading) {
+    const value = getScore(submission);
+    const score = Number(value);
+    if (!Number.isInteger(score) || score < 0 || score > submission.taskMaxScore) { setError(`Балл должен быть от 0 до ${submission.taskMaxScore}.`); return; }
+    setBusyId(submission.id); setError(""); setSuccess("");
+    try { await api.gradeSubmission(id, submission.id, { score }); setSuccess("Оценка сохранена."); submissions.reload(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusyId(""); }
+  }
+  async function finish() {
+    setShowFinishConfirm(false); setBusyId("finish"); setError(""); setSuccess("");
+    try { await api.finishContest(id); setSuccess("Контест завершён, результаты опубликованы."); onFinished(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusyId(""); }
+  }
+  if (competition.status === "completed") return <LoadState loading={results.loading} error={results.error}>{results.data?.items.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Место</th><th>Участник</th><th>Баллы</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td><strong>{item.points}</strong> <small>({item.scoreText})</small></td></tr>)}</tbody></table></div></div> : <Empty>Результатов нет.</Empty>}</LoadState>;
+  const ungraded = submissions.data?.filter(item => item.score === null).length ?? 0;
+  return <>
+    <div className="section-heading"><div><h2>Участники</h2><p className="muted">Все, кто подал заявку на это соревнование.</p></div></div>
+    <LoadState loading={participants.loading} error={participants.error}>{participants.data?.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Участник</th><th>Город / учёба</th><th>Заявка подана</th><th></th></tr></thead><tbody>{participants.data.map(participant => <tr key={participant.registrationId}><td><strong>{participant.fullName}</strong></td><td>{participant.locality || "—"}<small>{participant.education || ""}</small></td><td>{date(participant.registeredAt)}</td><td><RemoveParticipantButton competitionId={id} registrationId={participant.registrationId} fullName={participant.fullName} onRemoved={() => { participants.reload(); submissions.reload(); }} /></td></tr>)}</tbody></table></div></div> : <Empty>Участников пока нет.</Empty>}</LoadState>
+    <div className="section-heading"><div><h2>Проверка решений</h2><p className="muted">Выставите баллы по каждому решению, затем завершите контест — баллы просуммируются и опубликуются как результат.</p></div><button className="button" disabled={!submissions.data?.length || busyId === "finish"} onClick={() => setShowFinishConfirm(true)}>Завершить контест</button></div>
+    {showFinishConfirm && <ConfirmDialog title="Завершить контест?" confirmLabel="Завершить" onCancel={() => setShowFinishConfirm(false)} onConfirm={finish}>{ungraded > 0 ? `Есть ${ungraded} непроверенных решений — сначала оцените их, иначе завершение не пройдёт.` : "Баллы по заданиям просуммируются в итоговый результат, соревнование завершится, рейтинг обновится."}</ConfirmDialog>}
+    <Notice error={error || submissions.error} success={success} />
+    <LoadState loading={submissions.loading} error="">{submissions.data?.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Участник</th><th>Задание</th><th>Решение</th><th>Балл</th><th></th></tr></thead><tbody>{submissions.data.map(submission => <tr key={submission.id}><td><strong>{submission.athleteFullName}</strong></td><td>{submission.taskTitle}<small>макс. {submission.taskMaxScore}</small></td><td>{submission.kind === "link" ? <a href={submission.content} target="_blank" rel="noopener noreferrer">Открыть ссылку</a> : <span className="clamp">{submission.content}</span>}</td><td><input aria-label={`Балл: ${submission.athleteFullName}, ${submission.taskTitle}`} className="place-input" type="number" min="0" max={submission.taskMaxScore} value={getScore(submission)} onChange={event => setScores({ ...scores, [submission.id]: event.target.value })} /></td><td><button className="button button-small button-secondary" disabled={!!busyId} onClick={() => grade(submission)}>{busyId === submission.id ? "…" : submission.score !== null ? "Обновить" : "Сохранить"}</button></td></tr>)}</tbody></table></div></div> : <Empty>Решений пока нет — они появятся, как только спортсмены начнут отправлять ответы.</Empty>}</LoadState>
+  </>;
+}
+
+function RemoveParticipantButton({ competitionId, registrationId, fullName, onRemoved }: { competitionId: string; registrationId: string; fullName: string; onRemoved: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function remove() {
+    setBusy(true); setError("");
+    try { await api.removeRegistration(competitionId, registrationId); setConfirming(false); onRemoved(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
+  }
+  return <>
+    <button className="text-link" disabled={busy} onClick={() => setConfirming(true)}>Удалить</button>
+    {confirming && <ConfirmDialog title="Убрать участника?" confirmLabel="Убрать" onCancel={() => setConfirming(false)} onConfirm={remove}>{fullName} исчезнет из списка участников, заявку придётся подавать заново.{error && <><br /><span className="notice notice-error">{error}</span></>}</ConfirmDialog>}
+  </>;
 }
 
 function ParticipantsAndResults({ competition, onPublished }: { competition: Competition; onPublished: () => void }) {
@@ -88,7 +170,7 @@ function ParticipantsAndResults({ competition, onPublished }: { competition: Com
   }
   if (competition.status === "draft") return <Empty>Опубликуйте соревнование, чтобы принимать заявки и результаты.</Empty>;
   return <><div className="section-heading"><div><h2>Участники</h2><p className="muted">Места и результаты сохраняются как черновики до публикации.</p></div>{competition.status === "published" && <button className="button" disabled={busyId === "publish" || !drafts.data?.length} onClick={() => setShowResultsConfirm(true)}>Опубликовать результаты</button>}</div>{showResultsConfirm && <ConfirmDialog title="Опубликовать результаты?" confirmLabel="Опубликовать" onCancel={() => setShowResultsConfirm(false)} onConfirm={publish}>Будет опубликовано {drafts.data?.length ?? 0} результатов. Рейтинг обновится, редактирование станет недоступно.</ConfirmDialog>}<Notice error={error || participants.error || drafts.error} success={success} />
-    <LoadState loading={participants.loading || (competition.status === "published" && drafts.loading) || (competition.status === "completed" && results.loading)} error="">{competition.status === "completed" ? results.data?.items.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Место</th><th>Участник</th><th>Результат</th><th>Очки</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td>{item.scoreText || "—"}</td><td><strong>{item.points}</strong></td></tr>)}</tbody></table></div></div> : <Empty>Результатов нет.</Empty> : participants.data?.length ? <><div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Участник</th><th>Город / учёба</th><th>Место</th><th>Результат</th><th></th></tr></thead><tbody>{participants.data.map(participant => { const value = getEdit(participant); return <tr key={participant.registrationId}><td><strong>{participant.fullName}</strong><small>{date(participant.registeredAt)}</small></td><td>{participant.locality || "—"}<small>{participant.education || ""}</small></td><td><input aria-label={`Место: ${participant.fullName}`} className="place-input" type="number" min="1" value={value.place} onChange={event => change(participant.registrationId, { place: event.target.value }, participant)} /></td><td><input aria-label={`Результат: ${participant.fullName}`} maxLength={500} value={value.scoreText} onChange={event => change(participant.registrationId, { scoreText: event.target.value }, participant)} placeholder="Например, 4 задачи" /></td><td><button className="button button-small button-secondary" disabled={!!busyId} onClick={() => save(participant)}>{busyId === participant.registrationId ? "…" : "Сохранить"}</button></td></tr>; })}</tbody></table></div></div><p className="hint">Сохранено черновиков: {drafts.data?.length ?? 0} из {participants.data.length} участников. Публикация начислит 100 / 70 / 50 / 20 очков за 1 / 2 / 3 / остальные места.</p></> : <Empty>Участников пока нет.</Empty>}</LoadState>
+    <LoadState loading={participants.loading || (competition.status === "published" && drafts.loading) || (competition.status === "completed" && results.loading)} error="">{competition.status === "completed" ? results.data?.items.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Место</th><th>Участник</th><th>Результат</th><th>Очки</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td>{item.scoreText || "—"}</td><td><strong>{item.points}</strong></td></tr>)}</tbody></table></div></div> : <Empty>Результатов нет.</Empty> : participants.data?.length ? <><div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Участник</th><th>Город / учёба</th><th>Место</th><th>Результат</th><th></th><th></th></tr></thead><tbody>{participants.data.map(participant => { const value = getEdit(participant); return <tr key={participant.registrationId}><td><strong>{participant.fullName}</strong><small>{date(participant.registeredAt)}</small></td><td>{participant.locality || "—"}<small>{participant.education || ""}</small></td><td><input aria-label={`Место: ${participant.fullName}`} className="place-input" type="number" min="1" value={value.place} onChange={event => change(participant.registrationId, { place: event.target.value }, participant)} /></td><td><input aria-label={`Результат: ${participant.fullName}`} maxLength={500} value={value.scoreText} onChange={event => change(participant.registrationId, { scoreText: event.target.value }, participant)} placeholder="Например, 4 задачи" /></td><td><button className="button button-small button-secondary" disabled={!!busyId} onClick={() => save(participant)}>{busyId === participant.registrationId ? "…" : "Сохранить"}</button></td><td><RemoveParticipantButton competitionId={id} registrationId={participant.registrationId} fullName={participant.fullName} onRemoved={() => { participants.reload(); drafts.reload(); }} /></td></tr>; })}</tbody></table></div></div><p className="hint">Сохранено черновиков: {drafts.data?.length ?? 0} из {participants.data.length} участников. Публикация начислит 100 / 70 / 50 / 20 очков за 1 / 2 / 3 / остальные места.</p></> : <Empty>Участников пока нет.</Empty>}</LoadState>
   </>;
 }
 

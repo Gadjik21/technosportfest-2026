@@ -12,9 +12,19 @@ export function useRoute() {
 }
 
 export function go(path: string) {
-  if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  if (window.location.pathname !== path) {
+    const depth = ((window.history.state as { depth?: number } | null)?.depth ?? 0) + 1;
+    window.history.pushState({ depth }, "", path);
+  }
   window.dispatchEvent(new PopStateEvent("popstate"));
   window.scrollTo(0, 0);
+}
+
+/** Возвращает на предыдущий экран внутри приложения; при прямом заходе по ссылке истории нет, поэтому уходим на fallback. */
+export function goBack(fallback: string) {
+  const depth = (window.history.state as { depth?: number } | null)?.depth ?? 0;
+  if (depth > 0) window.history.back();
+  else go(fallback);
 }
 
 export function Link({ to, children, className = "" }: { to: string; children: ReactNode; className?: string }) {

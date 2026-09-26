@@ -373,6 +373,25 @@ def create_registration(
     return _registration_response(registration, competition_response, principal.user_id)
 
 
+@router.delete("/competitions/{competitionId}/registrations/{registrationId}", status_code=204)
+def remove_registration(
+    competitionId: UUID,
+    registrationId: UUID,
+    _: Principal = Depends(require_role("organizer")),
+    db: Session = Depends(get_db),
+) -> None:
+    competition = db.get(Competition, competitionId)
+    if competition is None:
+        raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
+    if competition.status == "completed":
+        raise ApiError(409, "INVALID_STATE", "Нельзя убрать участника завершённого соревнования.")
+    registration = db.get(Registration, registrationId)
+    if registration is None or registration.competition_id != competitionId:
+        raise ApiError(404, "NOT_FOUND", "Заявка не найдена.")
+    db.delete(registration)
+    db.commit()
+
+
 @router.get("/me/registrations", response_model=RegistrationPageResponse)
 def list_my_registrations(
     page: int = PageQuery,

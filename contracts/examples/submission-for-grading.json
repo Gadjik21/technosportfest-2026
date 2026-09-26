@@ -1,0 +1,13 @@
+{
+  "id": "88888888-8888-4888-8888-888888888888",
+  "taskId": "77777777-7777-4777-8777-777777777777",
+  "registrationId": "55555555-5555-4555-8555-555555555555",
+  "kind": "text",
+  "content": "print(a + b)",
+  "submittedAt": "2026-09-26T09:00:00Z",
+  "score": null,
+  "gradedAt": null,
+  "taskTitle": "Сумма двух чисел",
+  "taskMaxScore": 100,
+  "athleteFullName": "Амина Алиева"
+}

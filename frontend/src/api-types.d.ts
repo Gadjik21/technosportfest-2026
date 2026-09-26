@@ -446,6 +446,174 @@ export interface paths {
         patch: operations["updateDocument"];
         trace?: never;
     };
+    "/competitions/{competitionId}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Список заданий
+         * @description Черновик виден только организатору; опубликованное/завершённое соревнование — всем.
+         */
+        get: operations["listTasks"];
+        put?: never;
+        /**
+         * Добавить задание
+         * @description Только organizer, только пока соревнование в статусе draft.
+         */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/competitions/{competitionId}/tasks/{taskId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить задание
+         * @description Только organizer, только пока соревнование в статусе draft.
+         */
+        delete: operations["deleteTask"];
+        options?: never;
+        head?: never;
+        /**
+         * Изменить задание
+         * @description Только organizer, только пока соревнование в статусе draft. Нужно хотя бы одно поле.
+         */
+        patch: operations["updateTask"];
+        trace?: never;
+    };
+    "/competitions/{competitionId}/tasks/{taskId}/submission": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Отправить или заменить решение
+         * @description Только athlete со своей заявкой на это соревнование. Доступно, пока соревнование published и текущее время в [startsAt, endsAt). Повторный вызов заменяет решение и сбрасывает оценку.
+         */
+        put: operations["submitSolution"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/competitions/{competitionId}/my-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Мои решения по соревнованию
+         * @description Только athlete. Пустой список, если заявки нет или решений ещё нет.
+         */
+        get: operations["listMySubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/competitions/{competitionId}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Очередь решений на проверку
+         * @description Только organizer. Решения по всем заданиям соревнования с именем спортсмена.
+         */
+        get: operations["listSubmissionsForGrading"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/competitions/{competitionId}/submissions/{submissionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Оценить решение
+         * @description Только organizer. Балл должен быть от 0 до maxScore задания.
+         */
+        patch: operations["gradeSubmission"];
+        trace?: never;
+    };
+    "/competitions/{competitionId}/finish-contest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Завершить контест
+         * @description Только organizer. Требует хотя бы одно задание и отсутствие непроверенных решений. Считает сумму баллов по каждой заявке и публикует результат существующим механизмом Results/Rating одной операцией.
+         */
+        post: operations["finishContest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/competitions/{competitionId}/registrations/{registrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Убрать участника
+         * @description Только organizer. Нельзя убрать участника завершённого соревнования.
+         */
+        delete: operations["removeRegistration"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -725,6 +893,78 @@ export interface components {
             page: number;
             pageSize: number;
             total: number;
+        };
+        Task: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            competitionId: string;
+            title: string;
+            statement: string;
+            maxScore: number;
+            orderIndex: number;
+        };
+        TaskCreateRequest: {
+            title: string;
+            statement: string;
+            maxScore: number;
+        };
+        TaskPatchRequest: {
+            title?: string;
+            statement?: string;
+            maxScore?: number;
+        };
+        SubmissionRequest: {
+            /** @enum {string} */
+            kind: "text" | "link";
+            content: string;
+        };
+        Submission: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            taskId: string;
+            /** Format: uuid */
+            registrationId: string;
+            /** @enum {string} */
+            kind: "text" | "link";
+            content: string;
+            /** Format: date-time */
+            submittedAt: string;
+            score: number | null;
+            /** Format: date-time */
+            gradedAt: string | null;
+        };
+        SubmissionForGrading: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            taskId: string;
+            /** Format: uuid */
+            registrationId: string;
+            /** @enum {string} */
+            kind: "text" | "link";
+            content: string;
+            /** Format: date-time */
+            submittedAt: string;
+            score: number | null;
+            /** Format: date-time */
+            gradedAt: string | null;
+            taskTitle: string;
+            taskMaxScore: number;
+            athleteFullName: string;
+        };
+        GradeRequest: {
+            score: number;
+        };
+        FinishContestResponse: {
+            /** Format: uuid */
+            competitionId: string;
+            /** @enum {string} */
+            status: "completed";
+            publishedCount: number;
+            /** Format: date-time */
+            publishedAt: string;
         };
     };
     responses: {
@@ -1578,6 +1818,281 @@ export interface operations {
             403: components["responses"]["403"];
             404: components["responses"]["404"];
             422: components["responses"]["422"];
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"][];
+                };
+            };
+            401: components["responses"]["401"];
+            404: components["responses"]["404"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Создано */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+        };
+    };
+    deleteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+        };
+    };
+    updateTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+        };
+    };
+    submitSolution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+                taskId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmissionRequest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Submission"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+        };
+    };
+    listMySubmissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Submission"][];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+        };
+    };
+    listSubmissionsForGrading: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionForGrading"][];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+        };
+    };
+    gradeSubmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+                submissionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GradeRequest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Submission"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            422: components["responses"]["422"];
+        };
+    };
+    finishContest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinishContestResponse"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+        };
+    };
+    removeRegistration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+                registrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
         };
     };
 }

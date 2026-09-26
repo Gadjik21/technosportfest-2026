@@ -13,6 +13,9 @@ export type News = S["News"];
 export type Document = S["Document"];
 export type Rating = S["Rating"];
 export type MyRating = S["MyRating"];
+export type Task = S["Task"];
+export type Submission = S["Submission"];
+export type SubmissionForGrading = S["SubmissionForGrading"];
 export type Page<T> = { items: T[]; page: number; pageSize: number; total: number };
 
 export class ApiError extends Error {
@@ -59,6 +62,7 @@ export const api = {
   registerForCompetition: (id: string) => request<Registration>(`/competitions/${id}/registrations`, { method: "POST" }),
   myRegistrations: (page = 1) => request<Page<Registration>>(`/me/registrations${query({ page })}`),
   participants: (id: string, page = 1) => request<Page<Participant>>(`/competitions/${id}/participants${query({ page, pageSize: 100 })}`),
+  removeRegistration: (competitionId: string, registrationId: string) => request<void>(`/competitions/${competitionId}/registrations/${registrationId}`, { method: "DELETE" }),
   drafts: (id: string, page = 1) => request<Page<ResultDraft>>(`/competitions/${id}/results/drafts${query({ page, pageSize: 100 })}`),
   saveDraft: (id: string, registrationId: string, body: S["ResultDraftRequest"]) => request<ResultDraft>(`/competitions/${id}/results/${registrationId}`, { method: "PUT", body }),
   publishResults: (id: string) => request<S["PublishResultsResponse"]>(`/competitions/${id}/results/publish`, { method: "POST" }),
@@ -73,4 +77,13 @@ export const api = {
   documents: (page = 1, category?: string) => request<Page<Document>>(`/documents${query({ page, category })}`),
   createDocument: (body: S["DocumentCreate"]) => request<Document>("/documents", { method: "POST", body }),
   updateDocument: (id: string, body: S["DocumentPatch"]) => request<Document>(`/documents/${id}`, { method: "PATCH", body }),
+  tasks: (competitionId: string) => request<Task[]>(`/competitions/${competitionId}/tasks`),
+  createTask: (competitionId: string, body: S["TaskCreateRequest"]) => request<Task>(`/competitions/${competitionId}/tasks`, { method: "POST", body }),
+  updateTask: (competitionId: string, taskId: string, body: S["TaskPatchRequest"]) => request<Task>(`/competitions/${competitionId}/tasks/${taskId}`, { method: "PATCH", body }),
+  deleteTask: (competitionId: string, taskId: string) => request<void>(`/competitions/${competitionId}/tasks/${taskId}`, { method: "DELETE" }),
+  submitSolution: (competitionId: string, taskId: string, body: S["SubmissionRequest"]) => request<Submission>(`/competitions/${competitionId}/tasks/${taskId}/submission`, { method: "PUT", body }),
+  mySubmissions: (competitionId: string) => request<Submission[]>(`/competitions/${competitionId}/my-submissions`),
+  submissionsForGrading: (competitionId: string) => request<SubmissionForGrading[]>(`/competitions/${competitionId}/submissions`),
+  gradeSubmission: (competitionId: string, submissionId: string, body: S["GradeRequest"]) => request<Submission>(`/competitions/${competitionId}/submissions/${submissionId}`, { method: "PATCH", body }),
+  finishContest: (competitionId: string) => request<S["FinishContestResponse"]>(`/competitions/${competitionId}/finish-contest`, { method: "POST" }),
 };

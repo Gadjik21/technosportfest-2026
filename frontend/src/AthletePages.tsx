@@ -10,7 +10,7 @@ export function AthleteDashboard({ user }: { user: User }) {
   const rating = useLoad(() => api.myRating(), `dashboard-rating-${user.id}`);
   return <><PageTitle eyebrow="ЛИЧНЫЙ КАБИНЕТ" title={`Привет, ${profile.data?.fullName?.split(" ")[0] || "спортсмен"}!`} description="Всё о твоём участии и прогрессе." action={<Link className="button button-secondary" to="/cabinet/profile">Мой профиль</Link>} />
     <div className="stat-grid"><div className="card stat"><span>Очки рейтинга</span><strong>{rating.data?.points ?? "—"}</strong><small>За опубликованные результаты</small></div><div className="card stat"><span>Место в рейтинге</span><strong>{rating.data?.rank ?? "—"}</strong><small>Среди всех спортсменов</small></div><div className="card stat"><span>Соревнований</span><strong>{registrations.data?.total ?? "—"}</strong><small>Заявок подано</small></div><div className="card stat"><span>Результатов</span><strong>{results.data?.total ?? "—"}</strong><small>Опубликовано</small></div></div>
-    <div className="section-heading"><h2>Мои соревнования</h2><Link className="text-link" to="/cabinet/registrations">Все заявки →</Link></div>
+    <div className="section-heading"><h2>Мои соревнования</h2><Link className="text-link" to="/cabinet/competitions">Все соревнования →</Link></div>
     <LoadState loading={registrations.loading} error={registrations.error}>{registrations.data?.items.length ? <div className="card-grid">{registrations.data.items.slice(0, 3).map(item => <CompetitionCard key={item.id} competition={item.competition} />)}</div> : <Empty>Вы пока не записались ни на одно соревнование. <Link to="/competitions">Найти соревнование →</Link></Empty>}</LoadState>
     <div className="section-heading"><h2>Последние результаты</h2><Link className="text-link" to="/cabinet/results">Все результаты →</Link></div>
     <LoadState loading={results.loading} error={results.error}>{results.data?.items.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Место</th><th>Соревнование</th><th>Результат</th><th>Очки</th></tr></thead><tbody>{results.data.items.slice(0, 5).map(item => <tr key={item.id}><td>{item.place}</td><td><Link to={`/competitions/${item.competitionId}`}>Открыть соревнование</Link></td><td>{item.scoreText || "—"}</td><td><strong>{item.points}</strong></td></tr>)}</tbody></table></div></div> : <Empty>Результаты появятся после публикации организатором.</Empty>}</LoadState>
@@ -18,10 +18,14 @@ export function AthleteDashboard({ user }: { user: User }) {
   </>;
 }
 
-export function MyRegistrations() {
+export function CabinetCompetitions() {
   const [page, setPage] = useState(1);
-  const items = useLoad(() => api.myRegistrations(page), `my-registrations-${page}`);
-  return <><PageTitle eyebrow="ЛИЧНЫЙ КАБИНЕТ" title="Мои соревнования" description="Заявки и даты предстоящих стартов." /><LoadState loading={items.loading} error={items.error}>{items.data?.items.length ? <><div className="card-grid">{items.data.items.map(item => <CompetitionCard key={item.id} competition={item.competition} />)}</div><Pager page={page} total={items.data.total} pageSize={items.data.pageSize} onChange={setPage} /></> : <Empty>Заявок пока нет. <Link to="/competitions">Выбрать соревнование →</Link></Empty>}</LoadState></>;
+  const [disciplineId, setDisciplineId] = useState("");
+  const disciplines = useLoad(api.disciplines, "cabinet-competitions-disciplines");
+  const competitions = useLoad(() => api.competitions({ page, disciplineId: disciplineId || undefined }), `cabinet-competitions-${page}-${disciplineId}`);
+  return <><PageTitle eyebrow="ЛИЧНЫЙ КАБИНЕТ" title="Соревнования" description="Все открытые и завершённые старты. Уже поданные заявки отмечены на карточке." />
+    <div className="filter-bar"><label>Дисциплина <select value={disciplineId} onChange={event => { setDisciplineId(event.target.value); setPage(1); }}><option value="">Все дисциплины</option>{disciplines.data?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+    <LoadState loading={competitions.loading} error={competitions.error}>{competitions.data?.items.length ? <><div className="card-grid">{competitions.data.items.map(item => <CompetitionCard key={item.id} competition={item} />)}</div><Pager page={page} total={competitions.data.total} pageSize={competitions.data.pageSize} onChange={setPage} /></> : <Empty>Соревнований пока нет.</Empty>}</LoadState></>;
 }
 
 export function MyResults() {

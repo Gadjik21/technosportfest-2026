@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type User } from "./api";
-import { AthleteDashboard, MyProfile, MyRegistrations, MyResults } from "./AthletePages";
+import { AthleteDashboard, CabinetCompetitions, MyProfile, MyResults } from "./AthletePages";
 import { ManageCompetition, ManageCompetitions, ManageDocuments, ManageNews, NewCompetition } from "./OrganizerPages";
 import { AuthPage, CompetitionDetail, Competitions, Documents, Home, NewsDetail, NewsList, Ratings } from "./PublicPages";
 import { Empty, Link, Notice, go, useRoute } from "./ui";
 
 const publicNav = [{ to: "/competitions", label: "Соревнования" }, { to: "/ratings", label: "Рейтинг" }, { to: "/news", label: "Новости" }, { to: "/documents", label: "Документы" }];
-const athleteNav = [{ to: "/cabinet", label: "Обзор" }, { to: "/cabinet/registrations", label: "Мои соревнования" }, { to: "/cabinet/results", label: "Мои результаты" }, { to: "/cabinet/profile", label: "Профиль" }];
+const athleteNav = [{ to: "/cabinet", label: "Обзор" }, { to: "/cabinet/competitions", label: "Соревнования" }, { to: "/cabinet/results", label: "Мои результаты" }, { to: "/cabinet/profile", label: "Профиль" }];
 const organizerNav = [{ to: "/manage/competitions", label: "Соревнования" }, { to: "/manage/news", label: "Новости" }, { to: "/manage/documents", label: "Документы" }];
 
 function Nav({ path, items }: { path: string; items: { to: string; label: string }[] }) {
@@ -48,7 +48,7 @@ export function App() {
   else if (newsId) content = <NewsDetail id={newsId} />;
   else if (path === "/documents") content = <Documents />;
   else if (path === "/cabinet") content = <AthleteDashboard user={user!} />;
-  else if (path === "/cabinet/registrations") content = <MyRegistrations />;
+  else if (path === "/cabinet/competitions") content = <CabinetCompetitions />;
   else if (path === "/cabinet/results") content = <MyResults />;
   else if (path === "/cabinet/profile") content = <MyProfile user={user!} />;
   else if (path === "/manage/competitions") content = <ManageCompetitions />;
@@ -62,6 +62,6 @@ export function App() {
     <div className={`layout ${user && (protectedAthlete || protectedOrganizer) ? "layout-with-sidebar" : ""}`}>
       {user && (protectedAthlete || protectedOrganizer) && <aside className="sidebar"><div className="sidebar-heading">{user.role === "organizer" ? "ОРГАНИЗАТОР" : "СПОРТСМЕН"}</div><nav aria-label="Личный кабинет"><Nav path={path} items={user.role === "organizer" ? organizerNav : athleteNav} /></nav><div className="sidebar-foot">{user.email}</div></aside>}
       <main className="content" id="main"><Notice error={authError} />{content}</main>
-    </div><nav className="mobile-nav" aria-label="Мобильная навигация">{user?.role === "organizer" ? <><Link to="/manage/competitions">Соревнования</Link><Link to="/manage/news">Новости</Link><Link to="/manage/documents">Документы</Link><Link to="/ratings">Рейтинг</Link></> : <><Link to="/competitions">Соревнования</Link><Link to="/ratings">Рейтинг</Link><Link to="/news">Новости</Link><Link to="/documents">Документы</Link><Link to={user ? "/cabinet" : "/login"}>Кабинет</Link></>}</nav>
+    </div><nav className="mobile-nav" aria-label="Мобильная навигация">{user?.role === "organizer" ? <><Link to="/manage/competitions">Соревнования</Link><Link to="/manage/news">Новости</Link><Link to="/manage/documents">Документы</Link><Link to="/ratings">Рейтинг</Link></> : <><Link to={user?.role === "athlete" ? "/cabinet/competitions" : "/competitions"}>Соревнования</Link><Link to="/ratings">Рейтинг</Link><Link to="/news">Новости</Link><Link to="/documents">Документы</Link><Link to={user ? "/cabinet" : "/login"}>Кабинет</Link></>}</nav>
     <footer className="site-footer"><span>© ТехноСпортФест 2026</span><span>Спортивное программирование · Республика Дагестан</span></footer></div>;
 }

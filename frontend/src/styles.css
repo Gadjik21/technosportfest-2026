@@ -269,6 +269,11 @@ p {
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:18px
 }
+.task-list {
+  display:flex;
+  flex-direction:column;
+  gap:18px
+}
 .section-heading {
   display:flex;
   align-items:flex-end;
@@ -395,6 +400,9 @@ p {
 .status-completed {
   background:#eeeaff;
   color:#5448aa
+}
+.status-registered {
+  margin-bottom:9px
 }
 .competition-card h3,.news-card h3 {
   min-height:48px;
@@ -644,7 +652,8 @@ td small,.list-row small {
   max-width:760px;
   padding:30px;
   display:grid;
-  gap:16px
+  gap:16px;
+  margin-bottom:18px
 }
 .form-card h2 {
   margin-bottom:0

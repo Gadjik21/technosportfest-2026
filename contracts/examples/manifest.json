@@ -7,5 +7,9 @@
   "result-draft.json": "ResultDraft",
   "result.json": "Result",
   "rating.json": "Rating",
+  "task.json": "Task",
+  "submission.json": "Submission",
+  "submission-for-grading.json": "SubmissionForGrading",
+  "finish-contest.json": "FinishContestResponse",
   "error.json": "Error"
 }

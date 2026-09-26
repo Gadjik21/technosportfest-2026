@@ -34,6 +34,10 @@
     {
       "name": "Content",
       "description": "Б2: новости и документы"
+    },
+    {
+      "name": "Contests",
+      "description": "Кейс №2: задания, решения, проверка"
     }
   ],
   "paths": {
@@ -1549,6 +1553,603 @@
         },
         "x-origin-check": true
       }
+    },
+    "/competitions/{competitionId}/tasks": {
+      "get": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Список заданий",
+        "description": "Черновик виден только организатору; опубликованное/завершённое соревнование — всем.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Task"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        },
+        "operationId": "listTasks",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Добавить задание",
+        "description": "Только organizer, только пока соревнование в статусе draft.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          },
+          "201": {
+            "description": "Создано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreateRequest"
+              }
+            }
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "createTask",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/tasks/{taskId}": {
+      "patch": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Изменить задание",
+        "description": "Только organizer, только пока соревнование в статусе draft. Нужно хотя бы одно поле.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskPatchRequest"
+              }
+            }
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "updateTask",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Удалить задание",
+        "description": "Только organizer, только пока соревнование в статусе draft.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Успех"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "deleteTask",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/tasks/{taskId}/submission": {
+      "put": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Отправить или заменить решение",
+        "description": "Только athlete со своей заявкой на это соревнование. Доступно, пока соревнование published и текущее время в [startsAt, endsAt). Повторный вызов заменяет решение и сбрасывает оценку.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionRequest"
+              }
+            }
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "submitSolution",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/my-submissions": {
+      "get": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Мои решения по соревнованию",
+        "description": "Только athlete. Пустой список, если заявки нет или решений ещё нет.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Submission"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          }
+        },
+        "operationId": "listMySubmissions",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/submissions": {
+      "get": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Очередь решений на проверку",
+        "description": "Только organizer. Решения по всем заданиям соревнования с именем спортсмена.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SubmissionForGrading"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        },
+        "operationId": "listSubmissionsForGrading",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/submissions/{submissionId}": {
+      "patch": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Оценить решение",
+        "description": "Только organizer. Балл должен быть от 0 до maxScore задания.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GradeRequest"
+              }
+            }
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "gradeSubmission",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/finish-contest": {
+      "post": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Завершить контест",
+        "description": "Только organizer. Требует хотя бы одно задание и отсутствие непроверенных решений. Считает сумму баллов по каждой заявке и публикует результат существующим механизмом Results/Rating одной операцией.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinishContestResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "finishContest",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/competitions/{competitionId}/registrations/{registrationId}": {
+      "delete": {
+        "tags": [
+          "Competitions"
+        ],
+        "summary": "Убрать участника",
+        "description": "Только organizer. Нельзя убрать участника завершённого соревнования.",
+        "x-owner": "B1",
+        "x-milestone": "v4",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Успех"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "removeRegistration",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "registrationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2602,6 +3203,271 @@
           "page",
           "pageSize",
           "total"
+        ]
+      },
+      "Task": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "competitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "maxScore": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "orderIndex": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "competitionId",
+          "title",
+          "statement",
+          "maxScore",
+          "orderIndex"
+        ]
+      },
+      "TaskCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "maxScore": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "title",
+          "statement",
+          "maxScore"
+        ]
+      },
+      "TaskPatchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          },
+          "maxScore": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          }
+        }
+      },
+      "SubmissionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "link"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 10000
+          }
+        },
+        "required": [
+          "kind",
+          "content"
+        ]
+      },
+      "Submission": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registrationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "link"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "gradedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "registrationId",
+          "kind",
+          "content",
+          "submittedAt",
+          "score",
+          "gradedAt"
+        ]
+      },
+      "SubmissionForGrading": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "registrationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "text",
+              "link"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "gradedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "taskTitle": {
+            "type": "string"
+          },
+          "taskMaxScore": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "athleteFullName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "registrationId",
+          "kind",
+          "content",
+          "submittedAt",
+          "score",
+          "gradedAt",
+          "taskTitle",
+          "taskMaxScore",
+          "athleteFullName"
+        ]
+      },
+      "GradeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "score": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "score"
+        ]
+      },
+      "FinishContestResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "competitionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed"
+            ]
+          },
+          "publishedCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "competitionId",
+          "status",
+          "publishedCount",
+          "publishedAt"
         ]
       }
     },

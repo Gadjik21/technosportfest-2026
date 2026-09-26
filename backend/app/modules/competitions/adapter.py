@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.errors import ApiError
 from app.modules.competitions.models import Competition, Registration
-from app.modules.competitions.ports import ParticipantSummary
+from app.modules.competitions.ports import CompetitionTiming, ParticipantSummary
 from app.modules.identity.models import AthleteProfile
 
 
@@ -67,6 +67,21 @@ class SqlCompetitionPort:
 
     def get_competition_status(self, competition_id: UUID, db: Session) -> str | None:
         return db.scalar(select(Competition.status).where(Competition.id == competition_id))
+
+    def get_registration_by_athlete(self, competition_id: UUID, athlete_id: UUID, db: Session) -> ParticipantSummary | None:
+        registration = db.scalar(
+            select(Registration).where(Registration.competition_id == competition_id, Registration.athlete_id == athlete_id)
+        )
+        if registration is None:
+            return None
+        full_name = db.scalar(select(AthleteProfile.full_name).where(AthleteProfile.user_id == athlete_id)) or ""
+        return ParticipantSummary(registration_id=registration.id, athlete_id=athlete_id, full_name=full_name)
+
+    def get_competition_timing(self, competition_id: UUID, db: Session) -> CompetitionTiming | None:
+        competition = db.get(Competition, competition_id)
+        if competition is None:
+            return None
+        return CompetitionTiming(status=competition.status, starts_at=competition.starts_at, ends_at=competition.ends_at)
 
 
 competition_port = SqlCompetitionPort()

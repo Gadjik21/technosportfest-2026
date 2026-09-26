@@ -200,6 +200,30 @@ def test_registration_lifecycle_and_duplicate():
     assert denied.status_code == 403
 
 
+def test_organizer_removes_participant():
+    env = Env()
+    discipline_id = env.seed_discipline()
+    athlete_id = env.register_athlete("second-amina@example.com", "Вторая Амина")
+    competition_id = env.create_published_competition(discipline_id)
+    env.login_as(athlete_id, "athlete")
+    registered = env.client.post(f"/api/v1/competitions/{competition_id}/registrations", headers=ORIGIN)
+    registration_id = registered.json()["id"]
+
+    # Спортсмен не может убрать себя этим маршрутом (только organizer).
+    forbidden = env.client.delete(f"/api/v1/competitions/{competition_id}/registrations/{registration_id}", headers=ORIGIN)
+    assert forbidden.status_code == 403
+
+    env.login_organizer()
+    removed = env.client.delete(f"/api/v1/competitions/{competition_id}/registrations/{registration_id}", headers=ORIGIN)
+    assert removed.status_code == 204
+
+    participants = env.client.get(f"/api/v1/competitions/{competition_id}/participants", headers=ORIGIN)
+    assert participants.json()["total"] == 0
+
+    again = env.client.delete(f"/api/v1/competitions/{competition_id}/registrations/{registration_id}", headers=ORIGIN)
+    assert again.status_code == 404
+
+
 def test_registration_closed_after_deadline():
     env = Env()
     discipline_id = env.seed_discipline()
