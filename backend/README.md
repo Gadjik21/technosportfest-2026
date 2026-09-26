@@ -19,11 +19,11 @@ tests/                            auth, competitions/results/content
 Seed-данные (`python -m app.seed`):
 
 ```bash
-python -m app.seed --email organizer@example.com   # организатор (+ справочник дисциплин)
+python -m app.seed --email admin@example.com       # master admin (полный доступ и управление ролями)
 python -m app.seed --demo                          # вымышленные спортсмены, соревнование, заявки
 ```
 
-Пароль организатора запрашивается интерактивно и не хранится в репозитории; демо-спортсмены используют общий пароль `demo-password-123`. Публичного эндпоинта выдачи роли организатора нет.
+Пароль master admin запрашивается интерактивно и не хранится в репозитории; демо-спортсмены используют общий пароль `demo-password-123`. Публичного эндпоинта выдачи административных ролей нет: master admin создаётся только этим CLI, остальные роли — через `/admin/roles`.
 
 ## Реализовано Б1
 
@@ -37,4 +37,4 @@ python -m app.seed --demo                          # вымышленные сп
 
 `CompetitionPort` (см. `app/modules/competitions/ports.py`) реализован в `app/modules/competitions/adapter.py`: `lock_for_result_publication` делает `SELECT ... FOR UPDATE` и проверяет `status=published`; `complete_competition` завершает соревнование в той же транзакции; чтения без N+1. Results/Б2 подключён к реальному адаптеру через `app/modules/results/deps.py`.
 
-При добавлении новых моделей импортируйте их в `migrations/env.py`, чтобы Alembic видел метаданные. Для защищённого маршрута: `Depends(get_current_principal)` или `Depends(require_role("organizer"))`.
+При добавлении новых моделей импортируйте их в `migrations/env.py`, чтобы Alembic видел метаданные. Для защищённого маршрута: `Depends(get_current_principal)`, `Depends(require_role("athlete"))` для спортсменских ручек или `Depends(require_permission("news.create"))` для прав раздела (каталог прав — `app/modules/identity/permissions.py`).

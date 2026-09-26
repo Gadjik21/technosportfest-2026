@@ -1058,3 +1058,33 @@ legend {
     font-size:7px
   }
 }
+.permission-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+  margin:6px 0 10px
+}
+.permission-group {
+  border:1px solid var(--border, rgba(120,130,150,.25));
+  border-radius:10px;
+  padding:12px 14px;
+  margin:0
+}
+.permission-group legend {
+  font-weight:700;
+  font-size:13px;
+  padding:0 6px
+}
+.checkbox-row {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  padding:3px 0;
+  cursor:pointer
+}
+.checkbox-row small {
+  margin-left:auto;
+  font-size:11px;
+  opacity:.6
+}

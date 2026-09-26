@@ -21,16 +21,19 @@ cookie_scheme = APIKeyCookie(name=COOKIE_NAME, auto_error=False)
 class Principal:
     user_id: UUID
     role: str
+    permissions: frozenset[str] = frozenset()
+
+    def has(self, *codes: str) -> bool:
+        return bool(self.permissions.intersection(codes))
 
 
-def create_token(user_id: UUID, role: str) -> str:
+def create_token(user_id: UUID, role: str, permissions: list[str] | None = None) -> str:
     now = datetime.now(timezone.utc)
     settings = get_settings()
-    return jwt.encode(
-        {"sub": str(user_id), "role": role, "iat": now, "exp": now + timedelta(hours=settings.jwt_ttl_hours)},
-        settings.jwt_secret,
-        algorithm="HS256",
-    )
+    claims: dict = {"sub": str(user_id), "role": role, "iat": now, "exp": now + timedelta(hours=settings.jwt_ttl_hours)}
+    if permissions is not None:
+        claims["perms"] = list(permissions)
+    return jwt.encode(claims, settings.jwt_secret, algorithm="HS256")
 
 
 def decode_token(token: str | None) -> Principal | None:
@@ -44,9 +47,11 @@ def decode_token(token: str | None) -> Principal | None:
             options={"require": ["sub", "role", "iat", "exp"]},
         )
         role = claims["role"]
-        if role not in {"athlete", "organizer"}:
+        if not isinstance(role, str) or not role:
             return None
-        return Principal(user_id=UUID(claims["sub"]), role=role)
+        raw_permissions = claims.get("perms") or []
+        permissions = frozenset(str(item) for item in raw_permissions) if isinstance(raw_permissions, list) else frozenset()
+        return Principal(user_id=UUID(claims["sub"]), role=role, permissions=permissions)
     except (InvalidTokenError, ValueError, TypeError, KeyError):
         return None
 
@@ -61,6 +66,17 @@ def get_current_principal(request: Request, _: str | None = Security(cookie_sche
 def require_role(role: str):
     def check(principal: Principal = Depends(get_current_principal)) -> Principal:
         if principal.role != role:
+            raise ApiError(403, "FORBIDDEN", "Недостаточно прав.")
+        return principal
+
+    return check
+
+
+def require_permission(*codes: str):
+    """Разрешает запрос только при наличии хотя бы одного из переданных прав."""
+
+    def check(principal: Principal = Depends(get_current_principal)) -> Principal:
+        if not principal.has(*codes):
             raise ApiError(403, "FORBIDDEN", "Недостаточно прав.")
         return principal
 

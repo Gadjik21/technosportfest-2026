@@ -9,8 +9,9 @@ const competition = {
   format: "online", description: "Открытый турнир", status: "published", registrationOpen: true, viewerRegistrationId: null,
   createdAt: "2026-09-01T10:00:00Z",
 };
-const athlete = { id: "a1", email: "athlete@example.com", role: "athlete", createdAt: "2026-09-01T10:00:00Z" };
-const organizer = { id: "o1", email: "org@example.com", role: "organizer", createdAt: "2026-09-01T10:00:00Z" };
+const athlete = { id: "a1", email: "athlete@example.com", role: "athlete", permissions: [], createdAt: "2026-09-01T10:00:00Z" };
+const organizer = { id: "o1", email: "org@example.com", role: "organizer", permissions: ["competitions.view", "competitions.create", "competitions.edit", "competitions.publish", "contests.tasks", "contests.grade", "results.view", "results.save", "results.publish", "news.view", "documents.view"], createdAt: "2026-09-01T10:00:00Z" };
+const copywriter = { id: "o2", email: "copy@example.com", role: "Копирайтер", permissions: ["news.view", "news.create", "news.edit"], createdAt: "2026-09-01T10:00:00Z" };
 const page = <T,>(items: T[]) => ({ items, page: 1, pageSize: 100, total: items.length });
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 
@@ -68,7 +69,7 @@ describe("основной путь MVP", () => {
       calls.push({ path, method });
       if (path === "/auth/me") return loggedIn ? json(athlete) : json({ code: "UNAUTHENTICATED", message: "Войдите" }, 401);
       if (path === "/auth/login") { loggedIn = true; return json(athlete); }
-      if (path === "/me") return json({ user: athlete, fullName: "Амина Алиева", education: null, locality: null, disciplineIds: [] });
+      if (path === "/me") return json({ user: { ...athlete, permissions: [] }, fullName: "Амина Алиева", education: null, locality: null, disciplineIds: [] });
       if (path.startsWith("/me/registrations")) return json(page([]));
       if (path.startsWith("/me/results")) return json(page([]));
       if (path.startsWith("/me/rating")) return json({ athleteId: "a1", disciplineId: null, points: 0, rank: null, resultsCount: 0 });
@@ -120,5 +121,44 @@ describe("основной путь MVP", () => {
     await waitFor(() => expect(published).toBe(true));
     expect(calls).toContainEqual({ path: "/competitions/c1/results/publish", method: "POST", body: undefined });
     expect(await screen.findByText("100")).toBeTruthy();
+  });
+});
+
+describe("динамические роли", () => {
+  it("показывает только разрешённые разделы в меню организатора", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const path = url.replace("/api/v1", ""); const method = init?.method ?? "GET";
+      if (path === "/auth/me") return json(copywriter);
+      if (path.startsWith("/news")) return json(page([]));
+      throw new Error(`Unexpected ${method} ${path}`);
+    }));
+    window.history.replaceState({}, "", "/manage/news");
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Новости" })).toBeTruthy();
+    // Копирайтер в кабинете видит только раздел новостей.
+    const cabinet = screen.getByLabelText("Личный кабинет");
+    expect(within(cabinet).queryByText("Соревнования")).toBeNull();
+    expect(within(cabinet).queryByText("Роли и права")).toBeNull();
+    // Прямой заход в чужой раздел закрыт.
+    window.history.pushState({}, "", "/manage/competitions"); window.dispatchEvent(new PopStateEvent("popstate"));
+    expect(await screen.findByText("Доступ закрыт")).toBeTruthy();
+  });
+
+  it("master admin видит управление ролями и пользователями", async () => {
+    const masterAdmin = { id: "a9", email: "admin@example.com", role: "master-admin", permissions: ["competitions.view", "news.view", "documents.view", "roles.manage", "users.manage"], createdAt: "2026-09-01T10:00:00Z" };
+    const roles = [{ id: "r1", name: "Копирайтер", description: null, isSystem: false, permissions: ["news.create"], createdAt: "2026-09-01T10:00:00Z" }];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const path = url.replace("/api/v1", ""); const method = init?.method ?? "GET";
+      if (path === "/auth/me") return json(masterAdmin);
+      if (path === "/admin/roles") return json(roles);
+      if (path === "/admin/permissions") return json([{ section: "news", label: "Новости", codes: ["news.view", "news.create"] }]);
+      if (path.startsWith("/admin/users")) return json(page([]));
+      throw new Error(`Unexpected ${method} ${path}`);
+    }));
+    window.history.replaceState({}, "", "/manage/roles");
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Роли и права" })).toBeTruthy();
+    expect(await screen.findByText("Копирайтер")).toBeTruthy();
+    expect(within(screen.getByLabelText("Личный кабинет")).getByRole("link", { name: "Пользователи" })).toBeTruthy();
   });
 });

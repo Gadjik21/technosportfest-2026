@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.errors import ApiError
 from app.modules.identity.models import AthleteProfile, User
+from app.modules.identity.roles import get_athlete_role, role_permissions
 from app.modules.identity.security import (
     COOKIE_NAME,
     COOKIE_PATH,
@@ -40,6 +41,7 @@ class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
     role: str
+    permissions: list[str]
     createdAt: str
 
 
@@ -47,14 +49,20 @@ def user_response(user: User) -> UserResponse:
     created_at = user.created_at
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
-    return UserResponse(id=user.id, email=user.email, role=user.role, createdAt=created_at.isoformat().replace("+00:00", "Z"))
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        role=user.role.name,
+        permissions=role_permissions(user.role),
+        createdAt=created_at.isoformat().replace("+00:00", "Z"),
+    )
 
 
 def set_access_cookie(response: Response, user: User) -> None:
     settings = get_settings()
     response.set_cookie(
         key=COOKIE_NAME,
-        value=create_token(user.id, user.role),
+        value=create_token(user.id, user.role.name, role_permissions(user.role)),
         max_age=settings.jwt_ttl_hours * 3600,
         httponly=True,
         secure=settings.cookie_secure,
@@ -65,7 +73,8 @@ def set_access_cookie(response: Response, user: User) -> None:
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, response: Response, db: Session = Depends(get_db)) -> UserResponse:
-    user = User(email=str(body.email).lower(), password_hash=password_hash.hash(body.password), role="athlete")
+    athlete_role = get_athlete_role(db)
+    user = User(email=str(body.email).lower(), password_hash=password_hash.hash(body.password), role_id=athlete_role.id)
     try:
         db.add(user)
         db.flush()

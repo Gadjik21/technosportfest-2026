@@ -22,7 +22,7 @@ make up
 Основные команды:
 
 ```bash
-make organizer EMAIL=you@example.com  # создать организатора, пароль вводится интерактивно
+make admin EMAIL=you@example.com  # создать master admin (полный доступ + управление ролями), пароль вводится интерактивно
 make logs                             # смотреть логи; Ctrl+C завершает просмотр
 make down                             # остановить сервисы, данные PostgreSQL сохранятся
 ```
@@ -33,7 +33,7 @@ make down                             # остановить сервисы, д�
 cd frontend && npm ci && npm run dev
 ```
 
-Vite откроется на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Пароль организатора не хранится в репозитории. В production задайте свой `JWT_SECRET`, `APP_ORIGINS` и `COOKIE_SECURE=true`; локальный `.env` игнорируется Git.
+Vite откроется на `http://localhost:5173` и проксирует `/api/v1` в FastAPI. Пароль администратора не хранится в репозитории. Роли создаются master admin в разделе «Роли и права» (`/manage/roles`): например, роль «Копирайтер» с доступом только к новостям. В production задайте свой `JWT_SECRET`, `APP_ORIGINS` и `COOKIE_SECURE=true`; локальный `.env` игнорируется Git.
 
 ## Деплой и CD
 

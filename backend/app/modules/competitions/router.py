@@ -17,7 +17,7 @@ from app.db import get_db
 from app.errors import ApiError
 from app.modules.competitions.models import Competition, Discipline, Registration
 from app.modules.identity.models import AthleteProfile
-from app.modules.identity.security import Principal, require_role
+from app.modules.identity.security import Principal, require_permission, require_role
 
 router = APIRouter(tags=["Competitions"])
 
@@ -238,7 +238,7 @@ def list_competitions(
         query = query.where(Competition.discipline_id == disciplineId)
         count_query = count_query.where(Competition.discipline_id == disciplineId)
     if status is not None:
-        if status == "draft" and (principal is None or principal.role != "organizer"):
+        if status == "draft" and (principal is None or not principal.has("competitions.view")):
             raise ApiError(403, "FORBIDDEN", "Недостаточно прав.")
         query = query.where(Competition.status == status)
         count_query = count_query.where(Competition.status == status)
@@ -261,7 +261,7 @@ def get_competition(
     if competition is None:
         raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
     principal = optional_principal(request)
-    if competition.status == "draft" and (principal is None or principal.role != "organizer"):
+    if competition.status == "draft" and (principal is None or not principal.has("competitions.view")):
         raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
     return build_competition_responses(db, [competition], principal)[0]
 
@@ -269,7 +269,7 @@ def get_competition(
 @router.post("/competitions", response_model=CompetitionResponse, status_code=201)
 def create_competition(
     body: CompetitionCreate,
-    principal: Principal = Depends(require_role("organizer")),
+    principal: Principal = Depends(require_permission("competitions.create")),
     db: Session = Depends(get_db),
 ) -> CompetitionResponse:
     require_existing_discipline(db, body.disciplineId)
@@ -294,7 +294,7 @@ def create_competition(
 def update_competition(
     competitionId: UUID,
     body: CompetitionPatch,
-    principal: Principal = Depends(require_role("organizer")),
+    principal: Principal = Depends(require_permission("competitions.edit")),
     db: Session = Depends(get_db),
 ) -> CompetitionResponse:
     if not body.has_fields:
@@ -328,7 +328,7 @@ def update_competition(
 @router.post("/competitions/{competitionId}/publish", response_model=CompetitionResponse)
 def publish_competition(
     competitionId: UUID,
-    principal: Principal = Depends(require_role("organizer")),
+    principal: Principal = Depends(require_permission("competitions.publish")),
     db: Session = Depends(get_db),
 ) -> CompetitionResponse:
     competition = db.get(Competition, competitionId)
@@ -377,7 +377,7 @@ def create_registration(
 def remove_registration(
     competitionId: UUID,
     registrationId: UUID,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("competitions.edit")),
     db: Session = Depends(get_db),
 ) -> None:
     competition = db.get(Competition, competitionId)
@@ -443,7 +443,7 @@ def list_participants(
     competitionId: UUID,
     page: int = PageQuery,
     pageSize: int = PageSizeQuery,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("competitions.view")),
     db: Session = Depends(get_db),
 ) -> ParticipantPageResponse:
     if db.get(Competition, competitionId) is None:

@@ -9,7 +9,7 @@ from app.db import get_db
 from app.errors import ApiError
 from app.modules.competitions.ports import CompetitionPort
 from app.modules.identity.ports import IdentityPort
-from app.modules.identity.security import Principal, get_current_principal, require_role
+from app.modules.identity.security import Principal, get_current_principal, require_permission
 from app.modules.results import service
 from app.modules.results.deps import get_competition_port, get_identity_port
 from app.modules.results.models import Result
@@ -139,7 +139,7 @@ def list_result_drafts(
     competitionId: UUID,
     page: int = PageQuery,
     pageSize: int = PageSizeQuery,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("results.view")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
     identity_port: IdentityPort = Depends(get_identity_port),
@@ -153,7 +153,7 @@ def list_result_drafts(
 @router.post("/competitions/{competitionId}/results/publish", response_model=PublishResultsResponse)
 def publish_results(
     competitionId: UUID,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("results.publish")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> PublishResultsResponse:
@@ -194,7 +194,7 @@ def upsert_result_draft(
     competitionId: UUID,
     registrationId: UUID,
     body: ResultDraftRequest,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("results.save")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
     identity_port: IdentityPort = Depends(get_identity_port),

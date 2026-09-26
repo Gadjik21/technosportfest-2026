@@ -125,7 +125,7 @@ export function AuthPage({ mode, onAuth }: { mode: "login" | "register"; onAuth:
   const [busy, setBusy] = useState(false); const [error, setError] = useState("");
   async function submit(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
-    try { const user = mode === "login" ? await api.login({ email, password }) : await api.register({ email, password, fullName }); onAuth(user); const next = new URLSearchParams(window.location.search).get("next"); go(user.role === "athlete" && next?.startsWith("/") && !next.startsWith("//") ? next : user.role === "organizer" ? "/manage/competitions" : "/cabinet"); }
+    try { const user = mode === "login" ? await api.login({ email, password }) : await api.register({ email, password, fullName }); onAuth(user); const next = new URLSearchParams(window.location.search).get("next"); go(user.role === "athlete" && next?.startsWith("/") && !next.startsWith("//") ? next : user.role === "athlete" ? "/cabinet" : "/manage"); }
     catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
   }
   const next = new URLSearchParams(window.location.search).get("next");

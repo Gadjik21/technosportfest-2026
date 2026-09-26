@@ -17,6 +17,9 @@ export type Task = S["Task"];
 export type Submission = S["Submission"];
 export type SubmissionForGrading = S["SubmissionForGrading"];
 export type Standings = S["Standings"];
+export type Role = S["Role"];
+export type AdminUser = S["AdminUser"];
+export type PermissionGroup = S["PermissionGroup"];
 export type Page<T> = { items: T[]; page: number; pageSize: number; total: number };
 
 export class ApiError extends Error {
@@ -88,4 +91,12 @@ export const api = {
   gradeSubmission: (competitionId: string, submissionId: string, body: S["GradeRequest"]) => request<Submission>(`/competitions/${competitionId}/submissions/${submissionId}`, { method: "PATCH", body }),
   finishContest: (competitionId: string) => request<S["FinishContestResponse"]>(`/competitions/${competitionId}/finish-contest`, { method: "POST" }),
   standings: (competitionId: string) => request<Standings>(`/competitions/${competitionId}/standings`),
+  permissionCatalog: () => request<PermissionGroup[]>("/admin/permissions"),
+  roles: () => request<Role[]>("/admin/roles"),
+  createRole: (body: S["RoleCreate"]) => request<Role>("/admin/roles", { method: "POST", body }),
+  updateRole: (id: string, body: S["RolePatch"]) => request<Role>(`/admin/roles/${id}`, { method: "PATCH", body }),
+  deleteRole: (id: string) => request<void>(`/admin/roles/${id}`, { method: "DELETE" }),
+  setRolePermissions: (id: string, permissions: string[]) => request<Role>(`/admin/roles/${id}/permissions`, { method: "PUT", body: { permissions } }),
+  users: (page = 1, pageSize = 100) => request<Page<AdminUser>>(`/admin/users${query({ page, pageSize })}`),
+  assignRole: (userId: string, roleId: string) => request<AdminUser>(`/admin/users/${userId}/role`, { method: "PUT", body: { roleId } }),
 };

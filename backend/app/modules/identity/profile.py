@@ -55,7 +55,8 @@ def _user_response(user: User) -> dict:
     return {
         "id": user.id,
         "email": user.email,
-        "role": user.role,
+        "role": user.role.name,
+        "permissions": [permission.permission_code for permission in user.role.permissions],
         "createdAt": iso_z(user.created_at),
     }
 

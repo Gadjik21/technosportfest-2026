@@ -26,6 +26,8 @@ from app.modules.competitions.models import Competition, Discipline, Registratio
 from app.modules.contests import models as contests_models  # noqa: F401: registers metadata
 from app.modules.content import models as content_models  # noqa: F401: registers metadata
 from app.modules.identity.models import AthleteProfile, User
+from app.modules.identity.permissions import ALL_PERMISSIONS
+from app.modules.identity.roles import ensure_system_roles, get_role_by_name
 from app.modules.identity.security import COOKIE_NAME, create_token, password_hash
 from app.modules.results import models as results_models  # noqa: F401: registers metadata
 
@@ -48,7 +50,7 @@ class Env:
 
     def login_organizer(self) -> None:
         self.client.cookies.clear()
-        self.client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer"), path="/api/v1")
+        self.client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer", ALL_PERMISSIONS), path="/api/v1")
 
     def login_as(self, user_id: str, role: str) -> None:
         self.client.cookies.clear()
@@ -78,7 +80,10 @@ class Env:
             )
             db.add(competition)
             db.flush()
-            user = User(email=athlete_email, password_hash=password_hash.hash("long-demo-password"), role="athlete")
+            ensure_system_roles(db)
+            athlete_role = get_role_by_name(db, "athlete")
+            assert athlete_role is not None
+            user = User(email=athlete_email, password_hash=password_hash.hash("long-demo-password"), role_id=athlete_role.id)
             db.add(user)
             db.flush()
             db.add(AthleteProfile(user_id=user.id, full_name=athlete_name))

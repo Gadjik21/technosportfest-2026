@@ -11,7 +11,7 @@ from app.modules.competitions.ports import CompetitionPort
 from app.modules.contests import service
 from app.modules.contests.deps import get_competition_port
 from app.modules.contests.models import Submission, Task
-from app.modules.identity.security import Principal, require_role
+from app.modules.identity.security import Principal, require_permission, require_role
 
 router = APIRouter(tags=["Contests"])
 
@@ -140,7 +140,7 @@ def list_tasks(
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> list[TaskResponse]:
     principal = optional_principal(request)
-    is_organizer = principal is not None and principal.role == "organizer"
+    is_organizer = principal is not None and principal.has("contests.tasks")
     tasks = service.list_tasks(db, competition_port, competitionId, is_organizer)
     return [_task_response(t) for t in tasks]
 
@@ -170,7 +170,7 @@ def get_standings(
 def create_task(
     competitionId: UUID,
     body: TaskCreateRequest,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("contests.tasks")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> TaskResponse:
@@ -183,7 +183,7 @@ def update_task(
     competitionId: UUID,
     taskId: UUID,
     body: TaskPatchRequest,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("contests.tasks")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> TaskResponse:
@@ -195,7 +195,7 @@ def update_task(
 def delete_task(
     competitionId: UUID,
     taskId: UUID,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("contests.tasks")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> None:
@@ -235,7 +235,7 @@ def list_my_submissions(
 @router.get("/competitions/{competitionId}/submissions", response_model=list[GradingSubmissionResponse])
 def list_submissions_for_grading(
     competitionId: UUID,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("contests.grade")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> list[GradingSubmissionResponse]:
@@ -256,7 +256,7 @@ def grade_submission(
     competitionId: UUID,
     submissionId: UUID,
     body: GradeRequest,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("contests.grade")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> SubmissionResponse:
@@ -270,7 +270,7 @@ def grade_submission(
 @router.post("/competitions/{competitionId}/finish-contest", response_model=FinishContestResponse)
 def finish_contest(
     competitionId: UUID,
-    _: Principal = Depends(require_role("organizer")),
+    _: Principal = Depends(require_permission("contests.grade")),
     db: Session = Depends(get_db),
     competition_port: CompetitionPort = Depends(get_competition_port),
 ) -> FinishContestResponse:

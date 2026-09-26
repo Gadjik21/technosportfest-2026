@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.errors import ApiError
 from app.modules.content.models import Document, News
-from app.modules.identity.security import Principal, require_role
+from app.modules.identity.security import Principal, require_permission
 
 router = APIRouter(tags=["Content"])
 
@@ -117,7 +117,7 @@ def list_news(page: int = PageQuery, pageSize: int = PageSizeQuery, db: Session 
 
 
 @router.post("/news", response_model=NewsResponse, status_code=201)
-def create_news(body: NewsCreate, principal: Principal = Depends(require_role("organizer")), db: Session = Depends(get_db)) -> NewsResponse:
+def create_news(body: NewsCreate, principal: Principal = Depends(require_permission("news.create")), db: Session = Depends(get_db)) -> NewsResponse:
     news = News(id=uuid4(), title=body.title, body=body.body, author_id=principal.user_id)
     db.add(news)
     db.commit()
@@ -134,7 +134,7 @@ def get_news(id: UUID, db: Session = Depends(get_db)) -> NewsResponse:
 
 
 @router.patch("/news/{id}", response_model=NewsResponse)
-def update_news(id: UUID, body: NewsPatch, _: Principal = Depends(require_role("organizer")), db: Session = Depends(get_db)) -> NewsResponse:
+def update_news(id: UUID, body: NewsPatch, _: Principal = Depends(require_permission("news.edit")), db: Session = Depends(get_db)) -> NewsResponse:
     news = db.get(News, id)
     if news is None:
         raise ApiError(404, "NOT_FOUND", "Новость не найдена.")
@@ -162,7 +162,7 @@ def list_documents(
 
 
 @router.post("/documents", response_model=DocumentResponse, status_code=201)
-def create_document(body: DocumentCreate, principal: Principal = Depends(require_role("organizer")), db: Session = Depends(get_db)) -> DocumentResponse:
+def create_document(body: DocumentCreate, principal: Principal = Depends(require_permission("documents.create")), db: Session = Depends(get_db)) -> DocumentResponse:
     document = Document(id=uuid4(), title=body.title, category=body.category, file_url=body.fileUrl, author_id=principal.user_id)
     db.add(document)
     db.commit()
@@ -171,7 +171,7 @@ def create_document(body: DocumentCreate, principal: Principal = Depends(require
 
 
 @router.patch("/documents/{id}", response_model=DocumentResponse)
-def update_document(id: UUID, body: DocumentPatch, _: Principal = Depends(require_role("organizer")), db: Session = Depends(get_db)) -> DocumentResponse:
+def update_document(id: UUID, body: DocumentPatch, _: Principal = Depends(require_permission("documents.edit")), db: Session = Depends(get_db)) -> DocumentResponse:
     document = db.get(Document, id)
     if document is None:
         raise ApiError(404, "NOT_FOUND", "Документ не найден.")

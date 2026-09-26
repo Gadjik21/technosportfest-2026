@@ -24,6 +24,7 @@ from app.main import create_app
 from app.modules.competitions.models import AthleteDiscipline, Competition, Discipline, Registration  # noqa: F401: registers metadata
 from app.modules.content import models as content_models  # noqa: F401: registers metadata
 from app.modules.identity.models import AthleteProfile, User  # noqa: F401: registers metadata
+from app.modules.identity.permissions import ALL_PERMISSIONS
 from app.modules.identity.security import COOKIE_NAME, create_token
 from app.modules.results import models as results_models  # noqa: F401: registers metadata
 
@@ -86,7 +87,7 @@ class Env:
 
     def login_organizer(self) -> None:
         self.client.cookies.clear()
-        self.client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer"), path="/api/v1")
+        self.client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer", ALL_PERMISSIONS), path="/api/v1")
 
     def login_as(self, user_id: str, role: str) -> None:
         self.client.cookies.clear()

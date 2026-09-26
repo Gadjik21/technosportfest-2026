@@ -13,6 +13,7 @@ from app.db import Base, get_db
 from app.main import create_app
 from app.modules.content import models as content_models  # noqa: F401: registers metadata
 from app.modules.identity.models import AthleteProfile, User  # noqa: F401: registers metadata
+from app.modules.identity.permissions import ALL_PERMISSIONS
 from app.modules.identity.security import COOKIE_NAME, create_token
 from app.modules.results import models as results_models  # noqa: F401: registers metadata
 
@@ -34,7 +35,7 @@ def client_with_db() -> TestClient:
 
 
 def _login_as_organizer(client: TestClient) -> None:
-    client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer"), path="/api/v1")
+    client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer", ALL_PERMISSIONS), path="/api/v1")
 
 
 def test_news_crud_and_public_listing():

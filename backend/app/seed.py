@@ -1,11 +1,13 @@
-"""Seed-данные: справочник дисциплин, организатор и демоданные.
+"""Seed-данные: справочник дисциплин, master admin и демоданные.
 
-Публичного эндпоинта выдачи роли организатора нет — организатор создаётся
-только этим CLI. Демоданные используют вымышленные персональные данные,
-настоящие данные третьих лиц в репозиторий не попадают.
+Публичного эндпоинта выдачи административных ролей нет — master admin (роль
+`master-admin`, полный доступ и управление ролями/пользователями) создаётся
+только этим CLI. Остальные роли создаёт сам master admin через `/admin/roles`.
+Демоданные используют вымышленные персональные данные, настоящие данные
+третьих лиц в репозиторий не попадают.
 
 Примеры:
-    python -m app.seed --email organizer@example.com   # организатор
+    python -m app.seed --email admin@example.com       # master admin
     python -m app.seed --demo                          # демонстрационные данные
     python -m app.seed --contest-demo                  # демо-контест кейса №2
 """
@@ -22,6 +24,8 @@ from app.db import get_sessionmaker
 from app.modules.competitions.models import Competition, Discipline, Registration
 from app.modules.contests.models import Submission, Task
 from app.modules.identity.models import AthleteProfile, User
+from app.modules.identity.permissions import ROLE_ATHLETE, ROLE_MASTER_ADMIN
+from app.modules.identity.roles import ensure_system_roles, get_role_by_name
 from app.modules.identity.security import password_hash
 
 DISCIPLINES = [
@@ -46,29 +50,35 @@ def seed_disciplines(db) -> None:
     db.commit()
 
 
-def seed_organizer(db, email: str) -> None:
+def seed_master_admin(db, email: str) -> None:
     try:
         normalized_email = str(TypeAdapter(EmailStr).validate_python(email.strip())).lower()
     except ValidationError:
-        raise SystemExit("A valid organizer email is required")
-    password = getpass.getpass("Organizer password (12+ characters): ")
+        raise SystemExit("A valid admin email is required")
+    password = getpass.getpass("Master admin password (12+ characters): ")
     if len(password) < 12:
         raise SystemExit("Password must contain at least 12 characters")
-    db.add(User(email=normalized_email, password_hash=password_hash.hash(password), role="organizer"))
+    ensure_system_roles(db)
+    admin_role = get_role_by_name(db, ROLE_MASTER_ADMIN)
+    assert admin_role is not None
+    db.add(User(email=normalized_email, password_hash=password_hash.hash(password), role_id=admin_role.id))
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         raise SystemExit("Email is already registered")
-    print("Organizer created")
+    print("Master admin created: full access, can manage roles and users")
 
 
 def seed_demo(db) -> None:
+    ensure_system_roles(db)
+    athlete_role = get_role_by_name(db, ROLE_ATHLETE)
+    assert athlete_role is not None
     athletes: list[tuple[User, Discipline]] = []
     for row in DEMO_ATHLETES:
         user = db.scalar(select(User).where(User.email == row["email"]))
         if user is None:
-            user = User(email=row["email"], password_hash=password_hash.hash(DEMO_PASSWORD), role="athlete")
+            user = User(email=row["email"], password_hash=password_hash.hash(DEMO_PASSWORD), role_id=athlete_role.id)
             db.add(user)
             db.flush()
             db.add(AthleteProfile(user_id=user.id, full_name=row["full_name"], education=row["education"], locality=row["locality"]))
@@ -190,8 +200,8 @@ def seed_contest_demo(db) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed disciplines, an organizer and demo data")
-    parser.add_argument("--email", help="Organizer email (creates organizer)")
+    parser = argparse.ArgumentParser(description="Seed disciplines, a master admin and demo data")
+    parser.add_argument("--email", help="Master admin email (creates master admin with full access)")
     parser.add_argument("--demo", action="store_true", help="Create demo athletes, competition and registrations")
     parser.add_argument("--contest-demo", action="store_true", help="Create demo contest with tasks and submissions (кейс №2)")
     args = parser.parse_args()
@@ -199,7 +209,7 @@ def main() -> None:
     with get_sessionmaker()() as db:
         seed_disciplines(db)
         if args.email:
-            seed_organizer(db, args.email)
+            seed_master_admin(db, args.email)
         if args.demo:
             seed_demo(db)
         if args.contest_demo:

@@ -38,6 +38,10 @@
     {
       "name": "Contests",
       "description": "Кейс №2: задания, решения, проверка"
+    },
+    {
+      "name": "Admin",
+      "description": "Master admin: роли, права, назначение пользователям"
     }
   ],
   "paths": {
@@ -2192,6 +2196,426 @@
           }
         ]
       }
+    },
+    "/admin/permissions": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Каталог прав",
+        "description": "Группированный справочник прав для конструктора роли. Только roles.manage.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionGroup"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          }
+        },
+        "operationId": "listPermissions"
+      }
+    },
+    "/admin/roles": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Список ролей",
+        "description": "Все роли с их правами. Только roles.manage.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Role"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          }
+        },
+        "operationId": "listRoles"
+      },
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Создать роль",
+        "description": "Создаёт динамическую роль с набором прав. Только roles.manage. Системные роли менять нельзя.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "createRole",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/roles/{roleId}": {
+      "patch": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Изменить роль",
+        "description": "Меняет имя/описание динамической роли. Только roles.manage; системные роли — 403 ROLE_SYSTEM.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "updateRole",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolePatch"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Удалить роль",
+        "description": "Только динамические роли без назначенных пользователей. Системная — 403 ROLE_SYSTEM, назначенная — 409 ROLE_IN_USE.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Успех"
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "409": {
+            "$ref": "#/components/responses/409"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "deleteRole",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/admin/roles/{roleId}/permissions": {
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Назначить права роли",
+        "description": "Полностью заменяет набор прав динамической роли. Только roles.manage; системные роли — 403 ROLE_SYSTEM.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Role"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "updateRolePermissions",
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PermissionsUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Список пользователей",
+        "description": "Пользователи с ролью и именем (из профиля спортсмена, если есть). Только users.manage.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          }
+        },
+        "operationId": "listAdminUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}/role": {
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Назначить роль пользователю",
+        "description": "Меняет роль пользователя. Изменение прав вступит в силу после следующего входа (JWT до 24ч). Только users.manage.",
+        "x-owner": "B1",
+        "x-milestone": "v5",
+        "security": [
+          {
+            "accessCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUser"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "403": {
+            "$ref": "#/components/responses/403"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          },
+          "422": {
+            "$ref": "#/components/responses/422"
+          }
+        },
+        "x-origin-check": true,
+        "operationId": "assignUserRole",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignRoleRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2246,18 +2670,27 @@
             "enum": [
               "athlete",
               "organizer"
-            ]
+            ],
+            "description": "Имя роли пользователя: системные athlete/organizer/master-admin или динамическая роль master admin"
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Права текущей роли, например news.create"
           }
         },
         "required": [
           "id",
           "email",
           "role",
-          "createdAt"
+          "createdAt",
+          "permissions"
         ]
       },
       "RegisterRequest": {
@@ -3595,6 +4028,199 @@
           "maxTotalScore",
           "tasks",
           "items"
+        ]
+      },
+      "PermissionGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "section": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "section",
+          "label",
+          "codes"
+        ]
+      },
+      "Role": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "isSystem",
+          "permissions",
+          "createdAt"
+        ]
+      },
+      "RoleCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "RolePatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          }
+        }
+      },
+      "PermissionsUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "permissions"
+        ]
+      },
+      "AssignRoleRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "roleId"
+        ]
+      },
+      "AdminUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "roleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "fullName",
+          "roleId",
+          "roleName",
+          "createdAt"
+        ]
+      },
+      "AdminUserPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminUser"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "pageSize",
+          "total"
         ]
       }
     },

@@ -634,6 +634,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Каталог прав
+         * @description Группированный справочник прав для конструктора роли. Только roles.manage.
+         */
+        get: operations["listPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Список ролей
+         * @description Все роли с их правами. Только roles.manage.
+         */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Создать роль
+         * @description Создаёт динамическую роль с набором прав. Только roles.manage. Системные роли менять нельзя.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/roles/{roleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Удалить роль
+         * @description Только динамические роли без назначенных пользователей. Системная — 403 ROLE_SYSTEM, назначенная — 409 ROLE_IN_USE.
+         */
+        delete: operations["deleteRole"];
+        options?: never;
+        head?: never;
+        /**
+         * Изменить роль
+         * @description Меняет имя/описание динамической роли. Только roles.manage; системные роли — 403 ROLE_SYSTEM.
+         */
+        patch: operations["updateRole"];
+        trace?: never;
+    };
+    "/admin/roles/{roleId}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Назначить права роли
+         * @description Полностью заменяет набор прав динамической роли. Только roles.manage; системные роли — 403 ROLE_SYSTEM.
+         */
+        put: operations["updateRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Список пользователей
+         * @description Пользователи с ролью и именем (из профиля спортсмена, если есть). Только users.manage.
+         */
+        get: operations["listAdminUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{userId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Назначить роль пользователю
+         * @description Меняет роль пользователя. Изменение прав вступит в силу после следующего входа (JWT до 24ч). Только users.manage.
+         */
+        put: operations["assignUserRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -653,10 +781,15 @@ export interface components {
             id: string;
             /** Format: email */
             email: string;
-            /** @enum {string} */
+            /**
+             * @description Имя роли пользователя: системные athlete/organizer/master-admin или динамическая роль master admin
+             * @enum {string}
+             */
             role: "athlete" | "organizer";
             /** Format: date-time */
             createdAt: string;
+            /** @description Права текущей роли, например news.create */
+            permissions: string[];
         };
         RegisterRequest: {
             /** Format: email */
@@ -1004,6 +1137,54 @@ export interface components {
             maxTotalScore: number;
             tasks: components["schemas"]["StandingsTask"][];
             items: components["schemas"]["StandingsRow"][];
+        };
+        PermissionGroup: {
+            section: string;
+            label: string;
+            codes: string[];
+        };
+        Role: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string | null;
+            isSystem: boolean;
+            permissions: string[];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        RoleCreate: {
+            name: string;
+            description?: string | null;
+            permissions?: string[];
+        };
+        RolePatch: {
+            name?: string;
+            description?: string | null;
+        };
+        PermissionsUpdate: {
+            permissions: string[];
+        };
+        AssignRoleRequest: {
+            /** Format: uuid */
+            roleId: string;
+        };
+        AdminUser: {
+            /** Format: uuid */
+            id: string;
+            email: string;
+            fullName: string | null;
+            /** Format: uuid */
+            roleId: string;
+            roleName: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdminUserPage: {
+            items: components["schemas"]["AdminUser"][];
+            page: number;
+            pageSize: number;
+            total: number;
         };
     };
     responses: {
@@ -2156,6 +2337,218 @@ export interface operations {
             };
             401: components["responses"]["401"];
             404: components["responses"]["404"];
+        };
+    };
+    listPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionGroup"][];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"][];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePatch"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            409: components["responses"]["409"];
+            422: components["responses"]["422"];
+        };
+    };
+    updateRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PermissionsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            422: components["responses"]["422"];
+        };
+    };
+    listAdminUsers: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserPage"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+        };
+    };
+    assignUserRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUser"];
+                };
+            };
+            401: components["responses"]["401"];
+            403: components["responses"]["403"];
+            404: components["responses"]["404"];
+            422: components["responses"]["422"];
         };
     };
 }

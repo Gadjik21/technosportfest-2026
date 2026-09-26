@@ -1,5 +1,7 @@
 {
   "auth-me.json": "User",
+  "role.json": "Role",
+  "admin-user.json": "AdminUser",
   "competition.json": "Competition",
   "profile.json": "Profile",
   "registration.json": "Registration",

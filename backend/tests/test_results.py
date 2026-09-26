@@ -112,9 +112,10 @@ def _register_athlete(client: TestClient, email: str, full_name: str) -> UUID:
 
 
 def _login_as_organizer(client: TestClient) -> None:
+    from app.modules.identity.permissions import ALL_PERMISSIONS
     from app.modules.identity.security import COOKIE_NAME, create_token
 
-    client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer"), path="/api/v1")
+    client.cookies.set(COOKIE_NAME, create_token(uuid4(), "organizer", ALL_PERMISSIONS), path="/api/v1")
 
 
 def test_draft_is_private_and_excluded_from_rating():

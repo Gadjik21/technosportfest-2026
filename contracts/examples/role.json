@@ -1,0 +1,8 @@
+{
+  "id": "22222222-2222-4222-8222-222222222222",
+  "name": "Копирайтер",
+  "description": "Публикует новости и документы",
+  "isSystem": false,
+  "permissions": ["news.create", "news.edit", "news.view"],
+  "createdAt": "2026-09-26T09:00:00Z"
+}

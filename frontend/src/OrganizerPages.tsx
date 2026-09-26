@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { api, type Competition, type Document, type News, type Page, type Participant, type ResultDraft, type SubmissionForGrading, type Task } from "./api";
+import { api, type AdminUser, type Competition, type Document, type News, type Page, type Participant, type PermissionGroup, type ResultDraft, type Role, type SubmissionForGrading, type Task } from "./api";
 import { StandingsTable } from "./PublicPages";
 import { ConfirmDialog, Empty, Link, LoadState, Notice, PageTitle, Status, date, errorMessage, go, useLoad } from "./ui";
 
@@ -204,4 +204,74 @@ export function ManageDocuments() {
     catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
   }
   return <><PageTitle eyebrow="ОРГАНИЗАТОР" title="Документы" description="Добавляйте ссылки на положения и правила." /><form className="card form-card" onSubmit={submit}><h2>{editing ? "Редактировать документ" : "Новый документ"}</h2><Notice error={error} success={success} /><label>Название <input required minLength={3} maxLength={200} value={title} onChange={event => setTitle(event.target.value)} /></label><label>Категория <input required maxLength={80} value={category} onChange={event => setCategory(event.target.value)} placeholder="Положение" /></label><label>Ссылка на файл (HTTPS) <input required type="url" pattern="https://.*" value={fileUrl} onChange={event => setFileUrl(event.target.value)} placeholder="https://..." /></label><p className="hint">MVP хранит ссылку на файл. Загрузку файла добавим отдельным этапом.</p><div className="form-actions"><button className="button" disabled={busy}>{busy ? "Сохраняем…" : editing ? "Сохранить" : "Добавить"}</button>{editing && <button type="button" className="button button-secondary" onClick={() => { setEditing(null); setTitle(""); setCategory(""); setFileUrl(""); }}>Отмена</button>}</div></form><div className="section-heading"><h2>Документы</h2></div><LoadState loading={list.loading} error={list.error}>{list.data?.length ? <div className="card list-card">{list.data.map(item => <div className="list-row" key={item.id}><div><strong>{item.title}</strong><small>{item.category} · {date(item.publishedAt)}</small></div><button className="text-link" onClick={() => edit(item)}>Изменить</button></div>)}</div> : <Empty>Документов пока нет.</Empty>}</LoadState></>;
+}
+
+const actionLabel = (code: string) => {
+  const action = code.split(".").pop() ?? code;
+  return ({ view: "Просмотр", create: "Создание", edit: "Редактирование", delete: "Удаление", publish: "Публикация", tasks: "Задания", grade: "Проверка решений", manage: "Управление" } as Record<string, string>)[action] ?? action;
+};
+
+function PermissionCheckboxes({ groups, value, onChange }: { groups: PermissionGroup[]; value: Set<string>; onChange: (next: Set<string>) => void }) {
+  const toggle = (code: string) => {
+    const next = new Set(value);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    onChange(next);
+  };
+  return <div className="permission-grid">{groups.map(group => <fieldset className="permission-group" key={group.section}><legend>{group.label}</legend>{group.codes.map(code => <label className="checkbox-row" key={code}><input type="checkbox" checked={value.has(code)} onChange={() => toggle(code)} />{actionLabel(code)}<small>{code}</small></label>)}</fieldset>)}</div>;
+}
+
+type RoleForm = { name: string; description: string; permissions: Set<string> };
+
+export function ManageRoles() {
+  const roles = useLoad(api.roles, "admin-roles");
+  const groups = useLoad(api.permissionCatalog, "admin-permissions");
+  const [editingId, setEditingId] = useState<string | null>(null); // null = скрыта форма
+  const [form, setForm] = useState<RoleForm | null>(null);
+  const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  const startCreate = () => { setEditingId(null); setForm({ name: "", description: "", permissions: new Set() }); setError(""); setSuccess(""); window.scrollTo(0, 0); };
+  const startEdit = (role: Role) => { setEditingId(role.id); setForm({ name: role.name, description: role.description ?? "", permissions: new Set(role.permissions) }); setError(""); setSuccess(""); window.scrollTo(0, 0); };
+  async function submit(event: FormEvent) {
+    event.preventDefault(); if (!form) return;
+    setBusy(true); setError(""); setSuccess("");
+    try {
+      if (editingId) {
+        await api.updateRole(editingId, { name: form.name, description: form.description || null });
+        await api.setRolePermissions(editingId, [...form.permissions]);
+        setSuccess("Роль сохранена.");
+      } else {
+        await api.createRole({ name: form.name, description: form.description || null, permissions: [...form.permissions] });
+        setSuccess("Роль создана.");
+      }
+      setForm(null); setEditingId(null); roles.reload();
+    } catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
+  }
+  async function remove(role: Role) {
+    setBusy(true); setError(""); setSuccess("");
+    try { await api.deleteRole(role.id); setSuccess(`Роль «${role.name}» удалена.`); roles.reload(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusy(false); }
+  }
+  const removeTargetState = useState<Role | null>(null);
+  const removeTarget = removeTargetState[0];
+  const setRemoveTarget = removeTargetState[1];
+  return <><PageTitle eyebrow="MASTER ADMIN" title="Роли и права" description="Создавайте роли и назначайте им доступ к разделам. Системные роли менять нельзя." action={<button className="button" onClick={startCreate}>+ Новая роль</button>} />
+    {form && <form className="card form-card" onSubmit={submit}><h2>{editingId ? "Изменить роль" : "Новая роль"}</h2><Notice error={error} success={success} /><label>Название <input required minLength={2} maxLength={50} value={form.name} onChange={event => setForm({ ...form, name: event.target.value })} /></label><label>Описание <input maxLength={200} value={form.description} onChange={event => setForm({ ...form, description: event.target.value })} /></label><LoadState loading={groups.loading} error={groups.error}>{groups.data && <PermissionCheckboxes groups={groups.data} value={form.permissions} onChange={permissions => setForm({ ...form, permissions })} />}</LoadState><p className="hint">Изменения прав вступают в силу после повторного входа пользователя.</p><div className="form-actions"><button className="button" disabled={busy || groups.loading}>{busy ? "Сохраняем…" : editingId ? "Сохранить" : "Создать роль"}</button><button type="button" className="button button-secondary" onClick={() => { setForm(null); setEditingId(null); }}>Отмена</button></div></form>}
+    <Notice error={error || roles.error} success={success} />
+    <LoadState loading={roles.loading} error="">{roles.data?.length ? <div className="card list-card">{roles.data.map(role => <div className="list-row" key={role.id}><div><strong>{role.name} {role.isSystem && <span className="status status-completed">системная</span>}</strong><small>{role.description || "Без описания"} · прав: {role.permissions.length}</small></div><div className="form-actions">{!role.isSystem && <><button className="text-link" onClick={() => startEdit(role)}>Изменить</button><button className="text-link" onClick={() => setRemoveTarget(role)}>Удалить</button></>}</div></div>)}</div> : <Empty>Ролей пока нет. Создайте первую роль.</Empty>}</LoadState>
+    {removeTarget && <ConfirmDialog title={`Удалить роль «${removeTarget.name}»?`} confirmLabel="Удалить" onCancel={() => setRemoveTarget(null)} onConfirm={() => { const role = removeTarget; setRemoveTarget(null); void remove(role); }}>Роль можно удалить, только если она не назначена ни одному пользователю.</ConfirmDialog>}
+  </>;
+}
+
+export function ManageUsers() {
+  const users = useLoad(() => allPages(page => api.users(page)), "admin-users");
+  const roles = useLoad(api.roles, "admin-users-roles");
+  const [busyId, setBusyId] = useState(""); const [error, setError] = useState(""); const [success, setSuccess] = useState("");
+  async function assign(user: AdminUser, roleId: string) {
+    setBusyId(user.id); setError(""); setSuccess("");
+    try { await api.assignRole(user.id, roleId); setSuccess(`Роль пользователя ${user.email} изменена — вступит в силу после его входа.`); users.reload(); }
+    catch (reason) { setError(errorMessage(reason)); } finally { setBusyId(""); }
+  }
+  return <><PageTitle eyebrow="MASTER ADMIN" title="Пользователи" description="Назначайте роли — доступ к разделам появится после следующего входа пользователя." />
+    <Notice error={error || users.error || roles.error} success={success} />
+    <LoadState loading={users.loading || roles.loading} error="">{users.data?.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Пользователь</th><th>Роль</th></tr></thead><tbody>{users.data.map(user => <tr key={user.id}><td><strong>{user.fullName || user.email}</strong><small>{user.email}</small></td><td><select aria-label={`Роль: ${user.email}`} value={user.roleId} disabled={busyId === user.id} onChange={event => assign(user, event.target.value)}>{roles.data?.map(role => <option key={role.id} value={role.id}>{role.name}{role.isSystem ? " (системная)" : ""}</option>)}</select></td></tr>)}</tbody></table></div></div> : <Empty>Пользователей пока нет.</Empty>}</LoadState>
+  </>;
 }
