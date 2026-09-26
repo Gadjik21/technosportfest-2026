@@ -98,17 +98,28 @@ function ManageTasks({ competition, tasks }: { competition: Competition; tasks: 
   return <>
     <div className="section-heading"><div><h2>Задания</h2><p className="muted">{isDraft ? "Пока черновик — задания можно добавлять, менять и удалять. Если добавить хотя бы одно, после публикации соревнование станет контестом с приёмом решений." : "После публикации задания менять нельзя."}</p></div>{isDraft && !form && <button className="button" onClick={startCreate}>+ Добавить задание</button>}</div>
     <Notice error={error} success={success} />
-    {form && <form className="card form-card" onSubmit={submit}>
+    {form && <form className="card form-card task-editor-form" onSubmit={submit}>
       <label>Название <input required minLength={2} maxLength={200} value={form.title} onChange={event => setForm({ ...form, title: event.target.value })} /></label>
       <label>Условие <textarea required rows={5} maxLength={10000} value={form.statement} onChange={event => setForm({ ...form, statement: event.target.value })} /></label>
       <label>Максимальный балл <input required type="number" min="1" max="1000" value={form.maxScore} onChange={event => setForm({ ...form, maxScore: event.target.value })} /></label>
       <label>Проверка <select value={form.judgingMode} onChange={event => setForm({ ...form, judgingMode: event.target.value as "manual" | "code" })}><option value="manual">Организатором вручную</option><option value="code">Автоматически по тестам</option></select></label>
       {form.judgingMode === "code" && <>
-        <div className="form-grid"><label>Время на тест, сек <input type="number" min="1" max="60" value={form.timeLimitSeconds} onChange={event => setForm({ ...form, timeLimitSeconds: event.target.value })} /></label><label>Память, МиБ <input type="number" min="32" max="512" value={form.memoryLimitMb} onChange={event => setForm({ ...form, memoryLimitMb: event.target.value })} /></label></div>
-        <label>Сколько первых тестов показать участнику <input type="number" min="0" max="50" value={form.visibleTestCount} onChange={event => setForm({ ...form, visibleTestCount: event.target.value })} /></label>
-        <h3>Тестовые сценарии</h3>
-        {form.testCases.map((item, index) => <div className="card" key={index}><div className="card-top"><strong>Тест {index + 1}</strong><button type="button" className="text-link" onClick={() => setForm({ ...form, testCases: form.testCases.filter((_, current) => current !== index) })}>Удалить</button></div><label>Вход <textarea rows={3} maxLength={8192} value={item.input} onChange={event => changeCase(index, { input: event.target.value })} /></label><label>Ожидаемый вывод <textarea rows={3} maxLength={8192} value={item.expectedOutput} onChange={event => changeCase(index, { expectedOutput: event.target.value })} /></label></div>)}
-        <button type="button" className="button button-secondary" disabled={form.testCases.length >= 50} onClick={() => setForm({ ...form, testCases: [...form.testCases, { input: "", expectedOutput: "" }] })}>+ Добавить тест</button>
+        <section className="task-editor-settings" aria-labelledby="task-editor-settings-title">
+          <div className="task-editor-section-heading"><div><span className="eyebrow">АВТОПРОВЕРКА</span><h3 id="task-editor-settings-title">Параметры выполнения</h3></div><p>Лимиты применяются отдельно к каждому тесту.</p></div>
+          <div className="task-editor-limits">
+            <label>Время на тест<input type="number" min="1" max="60" value={form.timeLimitSeconds} onChange={event => setForm({ ...form, timeLimitSeconds: event.target.value })} /><small>Секунд · по умолчанию 15</small></label>
+            <label>Память на тест<input type="number" min="32" max="512" value={form.memoryLimitMb} onChange={event => setForm({ ...form, memoryLimitMb: event.target.value })} /><small>МиБ · по умолчанию 128, максимум 512</small></label>
+            <label>Открытые тесты<input type="number" min="0" max="50" value={form.visibleTestCount} onChange={event => setForm({ ...form, visibleTestCount: event.target.value })} /><small>Сколько результатов увидит участник</small></label>
+          </div>
+        </section>
+        <section className="task-cases" aria-labelledby="task-cases-title">
+          <div className="task-editor-section-heading"><div><span className="eyebrow">УСЛОВИЕ ЗАДАЧИ</span><h3 id="task-cases-title">Тестовые сценарии <span className="task-case-count">{form.testCases.length}</span></h3></div><p>Добавьте входные данные и ожидаемый ответ для каждого теста.</p></div>
+          {form.testCases.map((item, index) => <article className="task-case-card" key={index}>
+            <div className="task-case-heading"><div className="task-case-title"><span>#{index + 1}</span><strong>Тестовый сценарий</strong></div><button type="button" className="task-case-remove" aria-label={`Удалить тест ${index + 1}`} onClick={() => setForm({ ...form, testCases: form.testCases.filter((_, current) => current !== index) })}>×</button></div>
+            <div className="task-case-grid"><label>Входные данные<textarea className="task-case-code" rows={4} maxLength={8192} value={item.input} onChange={event => changeCase(index, { input: event.target.value })} placeholder="Например:&#10;8&#10;11" /></label><label>Ожидаемый вывод<textarea className="task-case-code" rows={4} maxLength={8192} value={item.expectedOutput} onChange={event => changeCase(index, { expectedOutput: event.target.value })} placeholder="Например:&#10;19" /></label></div>
+          </article>)}
+          <button type="button" className="button button-secondary task-add-case" disabled={form.testCases.length >= 50} onClick={() => setForm({ ...form, testCases: [...form.testCases, { input: "", expectedOutput: "" }] })}>＋ Добавить тестовый сценарий</button>
+        </section>
       </>}
       <div className="form-actions"><button className="button" disabled={busy}>{busy ? "Сохраняем…" : editingId ? "Сохранить" : "Добавить"}</button><button type="button" className="button button-secondary" onClick={() => { setForm(null); setEditingId(null); }}>Отмена</button></div>
     </form>}
