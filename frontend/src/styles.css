@@ -1061,11 +1061,12 @@ legend {
 }
 .permission-grid {
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));
   gap:14px;
   margin:6px 0 10px
 }
 .permission-group {
+  min-width:0;
   border:1px solid var(--border, rgba(120,130,150,.25));
   border-radius:10px;
   padding:12px 14px;
@@ -1077,15 +1078,32 @@ legend {
   padding:0 6px
 }
 .checkbox-row {
-  display:flex;
-  align-items:center;
-  gap:8px;
+  display:grid;
+  grid-template-columns:18px minmax(0,1fr);
+  column-gap:10px;
+  align-items:start;
   font-size:14px;
-  padding:3px 0;
+  padding:7px 0;
   cursor:pointer
 }
+.checkbox-row input {
+  grid-row:1 / span 2;
+  width:16px;
+  height:16px;
+  padding:0;
+  margin:2px 0 0
+}
+.permission-action {
+  min-width:0;
+  font-weight:700;
+  line-height:1.35
+}
 .checkbox-row small {
-  margin-left:auto;
+  grid-column:2;
+  min-width:0;
+  overflow-wrap:anywhere;
   font-size:11px;
-  opacity:.6
+  font-weight:400;
+  line-height:1.35;
+  color:#858a9a
 }

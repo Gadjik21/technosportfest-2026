@@ -208,7 +208,7 @@ export function ManageDocuments() {
 
 const actionLabel = (code: string) => {
   const action = code.split(".").pop() ?? code;
-  return ({ view: "Просмотр", create: "Создание", edit: "Редактирование", delete: "Удаление", publish: "Публикация", tasks: "Задания", grade: "Проверка решений", manage: "Управление" } as Record<string, string>)[action] ?? action;
+  return ({ view: "Просмотр", create: "Создание", edit: "Редактирование", delete: "Удаление", publish: "Публикация", save: "Сохранение", tasks: "Задания", grade: "Проверка решений", manage: "Управление" } as Record<string, string>)[action] ?? action;
 };
 
 function PermissionCheckboxes({ groups, value, onChange }: { groups: PermissionGroup[]; value: Set<string>; onChange: (next: Set<string>) => void }) {
@@ -217,7 +217,7 @@ function PermissionCheckboxes({ groups, value, onChange }: { groups: PermissionG
     if (next.has(code)) next.delete(code); else next.add(code);
     onChange(next);
   };
-  return <div className="permission-grid">{groups.map(group => <fieldset className="permission-group" key={group.section}><legend>{group.label}</legend>{group.codes.map(code => <label className="checkbox-row" key={code}><input type="checkbox" checked={value.has(code)} onChange={() => toggle(code)} />{actionLabel(code)}<small>{code}</small></label>)}</fieldset>)}</div>;
+  return <div className="permission-grid">{groups.map(group => <fieldset className="permission-group" key={group.section}><legend>{group.label}</legend>{group.codes.map(code => <label className="checkbox-row" key={code}><input type="checkbox" checked={value.has(code)} onChange={() => toggle(code)} /><span className="permission-action">{actionLabel(code)}</span><small>{code}</small></label>)}</fieldset>)}</div>;
 }
 
 type RoleForm = { name: string; description: string; permissions: Set<string> };
