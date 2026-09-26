@@ -6,6 +6,7 @@ so one test cannot leave files or processes for the next one.
 """
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import re
@@ -38,10 +39,38 @@ LANGUAGES: dict[str, Language] = {
 
 OUTPUT_LIMIT = 64 * 1024
 MESSAGE_LIMIT = 4000
+JUDGE_LABEL = "technosportfest.judge=1"
 
 
 class JudgeUnavailable(Exception):
     """The Docker daemon or a required language image is unavailable."""
+
+
+def check_runtime() -> None:
+    """Refuse to serve submissions unless this is a dedicated rootless daemon."""
+    try:
+        options = json.loads(_docker("info", "--format", "{{json .SecurityOptions}}"))
+    except (ValueError, TypeError) as exc:
+        raise JudgeUnavailable("Не удалось проверить режим Docker для песочницы.") from exc
+    if not isinstance(options, list) or not any(
+        option == "rootless" or option == "name=rootless" for option in options
+    ):
+        raise JudgeUnavailable("Песочница требует отдельный Docker Engine в rootless-режиме.")
+    if _docker("info", "--format", "{{.CgroupVersion}} {{.CgroupDriver}}") != "2 systemd":
+        raise JudgeUnavailable("Лимиты песочницы требуют cgroup v2 и systemd.")
+    host_root = os.environ.get("JUDGE_HOST_WORKDIR")
+    work_root = Path(os.environ.get("JUDGE_WORKDIR", "/judge-work"))
+    if not host_root or not Path(host_root).is_absolute() or not work_root.is_dir():
+        raise JudgeUnavailable("Не настроен общий рабочий каталог песочницы.")
+    for image in sorted({spec.image for spec in LANGUAGES.values()}):
+        _docker("image", "inspect", image)
+
+
+def cleanup_stale_containers() -> None:
+    """A worker crash must not leave its disposable containers behind."""
+    stale = _docker("ps", "-aq", "--filter", f"label={JUDGE_LABEL}")
+    for container_id in stale.splitlines():
+        _docker("rm", "-f", container_id)
 
 
 @dataclass(frozen=True)
@@ -93,7 +122,8 @@ def _run_container(image: str, command: tuple[str, ...], work_dir: Path, *, writ
     host_root = os.environ.get("JUDGE_HOST_WORKDIR")
     host_dir = (Path(host_root) / work_dir.name).resolve() if host_root else work_dir.resolve()
     opts = [
-        "create", "--name", name, "--init", "-i", "--network", "none", "--read-only",
+        "create", "--pull", "never", "--name", name, "--label", JUDGE_LABEL,
+        "--init", "-i", "--network", "none", "--read-only",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges=true", "--pids-limit", "64",
         "--memory", f"{memory_mb}m", "--memory-swap", f"{memory_mb}m", "--cpus", "1",
         "--user", "65534:65534", "--ulimit", "nofile=64:64",
@@ -117,7 +147,7 @@ def _run_container(image: str, command: tuple[str, ...], work_dir: Path, *, writ
             try:
                 usage = _docker("stats", "--no-stream", "--format", "{{.MemUsage}}", container_id, timeout=2)
                 value = _memory_kb(usage)
-                if value is not None:
+                if value is not None and value > 0:
                     peak_kb = max(peak_kb or 0, value)
             except JudgeUnavailable:
                 pass

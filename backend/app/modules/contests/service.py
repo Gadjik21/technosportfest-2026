@@ -14,10 +14,10 @@ from uuid import UUID, uuid4
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.errors import ApiError
 from app.modules.competitions.ports import CompetitionPort
 from app.modules.contests.models import Submission, Task, TestCase
+from app.modules.contests.availability import judge_ready
 from app.modules.contests.judge import LANGUAGES
 from app.modules.results import service as results_service
 
@@ -149,7 +149,7 @@ def submit_solution(
         raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
     task = _get_task(db, competition_id, task_id)
     if task.judging_mode == "code":
-        if not get_settings().judge_enabled:
+        if not judge_ready():
             raise ApiError(503, "JUDGE_UNAVAILABLE", "Проверка кода пока не подключена.")
         if kind != "code" or language not in LANGUAGES:
             raise ApiError(422, "VALIDATION_ERROR", "Выберите поддерживаемый язык и отправьте код.")

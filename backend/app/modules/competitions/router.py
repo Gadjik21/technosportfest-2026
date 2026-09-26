@@ -13,7 +13,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
 from app.db import get_db
 from app.errors import ApiError
 from app.modules.competitions.models import Competition, Discipline, Registration
@@ -339,7 +338,8 @@ def publish_competition(
         raise ApiError(409, "INVALID_STATE", "Публиковать можно только черновик соревнования.")
     if as_utc(competition.registration_deadline) <= now_utc():
         raise ApiError(409, "REGISTRATION_CLOSED", "Дедлайн регистрации уже прошёл, открыть регистрацию нельзя.")
-    if not get_settings().judge_enabled:
+    from app.modules.contests.availability import judge_ready
+    if not judge_ready():
         from app.modules.contests.models import Task
         has_code_task = db.scalar(select(Task.id).where(Task.competition_id == competitionId, Task.judging_mode == "code").limit(1))
         if has_code_task is not None:

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     jwt_ttl_hours: int = Field(default=24, ge=1, le=168)
     judge_enabled: bool = False
+    judge_health_url: str | None = None
 
     @property
     def allowed_origins(self) -> set[str]:

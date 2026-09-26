@@ -1,0 +1,49 @@
+# Opt-in code judge. The socket must belong to a separate, unprivileged
+# rootless Docker daemon used only for this application.
+services:
+  api:
+    environment:
+      JUDGE_ENABLED: "true"
+      JUDGE_HEALTH_URL: http://judge:9000/health
+
+  judge:
+    build:
+      context: ./backend
+      dockerfile: judge.Dockerfile
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://tsf:tsf@db:5432/tsf
+      DOCKER_HOST: unix:///run/judge/docker.sock
+      JUDGE_WORKDIR: /judge-work
+      JUDGE_HOST_WORKDIR: ${JUDGE_HOST_WORKDIR:?Set an absolute path owned by the rootless Docker user}
+    user: "${JUDGE_UID:?Set the rootless Docker user ID}:${JUDGE_GID:?Set the rootless Docker group ID}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    tmpfs:
+      - /tmp:rw,nosuid,size=64m
+    volumes:
+      - type: bind
+        source: ${JUDGE_ROOTLESS_SOCKET:?Set the dedicated rootless Docker socket path}
+        target: /run/judge/docker.sock
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${JUDGE_HOST_WORKDIR:?Set an absolute path owned by the rootless Docker user}
+        target: /judge-work
+        bind:
+          create_host_path: false
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped

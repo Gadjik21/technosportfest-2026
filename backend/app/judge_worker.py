@@ -4,17 +4,32 @@ Run only as the dedicated judge service. The web API has no Docker access.
 """
 
 import logging
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import threading
 import time
 
 from sqlalchemy import select, update
 
 from app.db import get_sessionmaker
-from app.modules.contests.judge import JudgeUnavailable, judge_code
+from app.modules.contests.judge import JudgeUnavailable, check_runtime, cleanup_stale_containers, judge_code
 from app.modules.contests.models import Submission, Task
 from app.modules.contests.service import _now
 
 
 logger = logging.getLogger(__name__)
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        if self.path != "/health":
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def log_message(self, format: str, *args: object) -> None:
+        return
 
 
 def process_one() -> bool:
@@ -73,13 +88,17 @@ def process_one() -> bool:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
+    check_runtime()
+    cleanup_stale_containers()
     sessions = get_sessionmaker()
-    # This service runs exactly one consumer. An interrupted job has no live
-    # execution container after Docker service shutdown and can be retried.
+    # This service runs exactly one consumer. Stale child containers were
+    # removed above; interrupted database jobs can now be retried.
     with sessions() as db:
         db.execute(update(Submission).where(Submission.kind == "code", Submission.verdict == "running")
                    .values(verdict="queued", judge_started_at=None))
         db.commit()
+    server = ThreadingHTTPServer(("0.0.0.0", 9000), _HealthHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
     while True:
         try:
             if not process_one():

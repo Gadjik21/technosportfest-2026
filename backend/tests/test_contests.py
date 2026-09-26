@@ -11,7 +11,6 @@
 import os
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
-from types import SimpleNamespace
 
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite://")
 os.environ.setdefault("JWT_SECRET", "test-only-secret-with-at-least-32-characters")
@@ -24,7 +23,6 @@ from sqlalchemy.pool import StaticPool
 from app.db import Base, get_db
 from app.main import create_app
 from app.modules.competitions.models import Competition, Discipline, Registration
-from app.modules.competitions import router as competitions_router
 from app.modules.contests import models as contests_models  # noqa: F401: registers metadata
 from app.modules.contests import service as contests_service
 from app import judge_worker
@@ -302,7 +300,8 @@ def test_code_task_results_reach_athlete_without_exposing_hidden_case(monkeypatc
     blocked_publish = env.client.post(f"/api/v1/competitions/{competition_id}/publish", headers=ORIGIN)
     assert blocked_publish.status_code == 409
     assert blocked_publish.json()["code"] == "JUDGE_UNAVAILABLE"
-    monkeypatch.setattr(competitions_router, "get_settings", lambda: SimpleNamespace(judge_enabled=True))
+    from app.modules.contests import availability
+    monkeypatch.setattr(availability, "judge_ready", lambda: True)
     env.client.post(f"/api/v1/competitions/{competition_id}/publish", headers=ORIGIN)
     env.fast_forward_to_ongoing(competition_id)
 
@@ -315,7 +314,7 @@ def test_code_task_results_reach_athlete_without_exposing_hidden_case(monkeypatc
         json={"kind": "code", "language": "python", "content": "print(0)"}, headers=ORIGIN,
     )
     assert unavailable.status_code == 503  # No sandbox is connected by default.
-    monkeypatch.setattr(contests_service, "get_settings", lambda: SimpleNamespace(judge_enabled=True))
+    monkeypatch.setattr(contests_service, "judge_ready", lambda: True)
     queued = env.client.put(
         f"/api/v1/competitions/{competition_id}/tasks/{task_id}/submission",
         json={"kind": "code", "language": "python", "content": "print(0)"}, headers=ORIGIN,
