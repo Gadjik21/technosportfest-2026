@@ -13,6 +13,8 @@ services:
     env_file: ./backend/.env
     environment:
       DATABASE_URL: postgresql+psycopg://tsf:tsf@db:5432/tsf
+      # The worker shares application settings but never signs user tokens.
+      JWT_SECRET: judge-worker-unused-secret-not-for-authentication
       DOCKER_HOST: unix:///run/judge/docker.sock
       JUDGE_WORKDIR: /judge-work
       JUDGE_HOST_WORKDIR: ${JUDGE_HOST_WORKDIR:?Set an absolute path owned by the rootless Docker user}

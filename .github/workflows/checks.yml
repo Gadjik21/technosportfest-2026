@@ -89,7 +89,7 @@ jobs:
             set -e
             cd /opt/tsf
             touch backend/.env
-            docker compose -f compose.yaml -f compose.prod.yaml up -d --build
+            docker compose --env-file .env.judge -f compose.yaml -f compose.prod.yaml -f compose.judge.yaml up -d --build --wait
             docker image prune -f
       - name: Проверка прода
         run: curl --fail-with-body --silent --show-error http://${{ vars.DEPLOY_HOST }}/health
