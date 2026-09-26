@@ -614,6 +614,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/competitions/{competitionId}/standings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Таблица результатов по заданиям
+         * @description Публично для published/completed соревнований с заданиями; черновик виден только organizer. Баллы по каждому заданию, как в Codeforces.
+         */
+        get: operations["getStandings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -965,6 +985,25 @@ export interface components {
             publishedCount: number;
             /** Format: date-time */
             publishedAt: string;
+        };
+        StandingsTask: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            maxScore: number;
+        };
+        StandingsRow: {
+            /** Format: uuid */
+            registrationId: string;
+            fullName: string;
+            place: number;
+            totalScore: number;
+            taskScores: (number | null)[];
+        };
+        Standings: {
+            maxTotalScore: number;
+            tasks: components["schemas"]["StandingsTask"][];
+            items: components["schemas"]["StandingsRow"][];
         };
     };
     responses: {
@@ -2093,6 +2132,30 @@ export interface operations {
             403: components["responses"]["403"];
             404: components["responses"]["404"];
             409: components["responses"]["409"];
+        };
+    };
+    getStandings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                competitionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Успех */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Standings"];
+                };
+            };
+            401: components["responses"]["401"];
+            404: components["responses"]["404"];
         };
     };
 }

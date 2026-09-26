@@ -274,6 +274,11 @@ p {
   flex-direction:column;
   gap:18px
 }
+.task-submit-form {
+  display:grid;
+  gap:14px;
+  margin-top:14px
+}
 .section-heading {
   display:flex;
   align-items:flex-end;
@@ -403,6 +408,14 @@ p {
 }
 .status-registered {
   margin-bottom:9px
+}
+.standings-full {
+  background:#eaf5ee;
+  color:#267b48;
+  font-weight:800
+}
+.standings-empty {
+  color:#c3c6d1
 }
 .competition-card h3,.news-card h3 {
   min-height:48px;

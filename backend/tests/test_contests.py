@@ -196,7 +196,18 @@ def test_contest_full_scenario_publishes_result_and_rating():
     assert public_results.status_code == 200
     assert public_results.json()["items"][0]["place"] == 1
     assert public_results.json()["items"][0]["points"] == 100  # 1 место -> 100 баллов по формуле рейтинга
-    assert public_results.json()["items"][0]["scoreText"] == "80 баллов"
+    assert public_results.json()["items"][0]["scoreText"] == "80 из 150 по заданиям"  # 100 (Задача 1) + 50 (Задача 2)
+
+    # Таблица результатов по заданиям (как в Codeforces) видна публично после завершения.
+    standings = env.client.get(f"/api/v1/competitions/{competition_id}/standings")
+    assert standings.status_code == 200, standings.text
+    assert standings.json()["maxTotalScore"] == 150
+    assert [t["title"] for t in standings.json()["tasks"]] == ["Задача 1", "Задача 2"]
+    row = standings.json()["items"][0]
+    assert row["fullName"] == "Спортсмен Тестов"
+    assert row["place"] == 1
+    assert row["totalScore"] == 80
+    assert row["taskScores"] == [80, None]  # вторую задачу не отправляли
 
     # ...и в профиле спортсмена, и в общем рейтинге — бесплатно, без правок Results/Rating.
     env.login_as(athlete_id, "athlete")

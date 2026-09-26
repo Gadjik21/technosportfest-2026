@@ -197,6 +197,56 @@ def grade_submission(
     return submission
 
 
+# ---------- Таблица результатов (как в Codeforces: баллы по каждому заданию) ----------
+
+
+@dataclass(frozen=True)
+class StandingsRow:
+    registration_id: UUID
+    full_name: str
+    place: int
+    total_score: int
+    task_scores: list[int | None]  # None = решение не отправлено; по порядку заданий
+
+
+def contest_standings(
+    db: Session, competition_port: CompetitionPort, competition_id: UUID, is_organizer: bool
+) -> tuple[list[Task], list[StandingsRow]]:
+    status = competition_port.get_competition_status(competition_id, db)
+    if status is None or (status == "draft" and not is_organizer):
+        raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
+    tasks = list(db.scalars(select(Task).where(Task.competition_id == competition_id).order_by(Task.order_index, Task.id)).all())
+    if not tasks:
+        return [], []
+    participants = competition_port.list_participants(competition_id, db)
+    task_ids = [t.id for t in tasks]
+    score_map: dict[tuple[UUID, UUID], int] = {
+        (registration_id, task_id): score
+        for registration_id, task_id, score in db.execute(
+            select(Submission.registration_id, Submission.task_id, Submission.score).where(
+                Submission.task_id.in_(task_ids), Submission.score.is_not(None)
+            )
+        ).all()
+    }
+    totals: list[tuple] = []
+    for participant in participants:
+        task_scores = [score_map.get((participant.registration_id, task.id)) for task in tasks]
+        total = sum(score for score in task_scores if score is not None)
+        totals.append((participant, task_scores, total))
+    totals.sort(key=lambda row: (-row[2], row[0].full_name, str(row[0].registration_id)))
+    rows = [
+        StandingsRow(
+            registration_id=participant.registration_id,
+            full_name=participant.full_name,
+            place=sum(1 for _, _, other_total in totals if other_total > total) + 1,
+            total_score=total,
+            task_scores=task_scores,
+        )
+        for participant, task_scores, total in totals
+    ]
+    return tasks, rows
+
+
 # ---------- Завершение контеста ----------
 
 
@@ -206,9 +256,11 @@ def finish_contest(db: Session, competition_port: CompetitionPort, competition_i
         raise ApiError(404, "NOT_FOUND", "Соревнование не найдено.")
     if status != "published":
         raise ApiError(409, "INVALID_STATE", "Завершить можно только опубликованное соревнование.")
-    task_ids = db.scalars(select(Task.id).where(Task.competition_id == competition_id)).all()
-    if not task_ids:
+    tasks = list(db.scalars(select(Task).where(Task.competition_id == competition_id)).all())
+    if not tasks:
         raise ApiError(409, "NO_TASKS", "В соревновании нет заданий.")
+    task_ids = [t.id for t in tasks]
+    max_total = sum(t.max_score for t in tasks)
     ungraded = db.scalar(
         select(func.count()).select_from(Submission).where(Submission.task_id.in_(task_ids), Submission.score.is_(None))
     )
@@ -223,6 +275,6 @@ def finish_contest(db: Session, competition_port: CompetitionPort, competition_i
     for participant in ranked:
         place = sum(1 for other in ranked if totals.get(other.registration_id, 0) > totals.get(participant.registration_id, 0)) + 1
         results_service.upsert_draft(
-            db, competition_port, competition_id, participant.registration_id, place, f"{totals.get(participant.registration_id, 0)} баллов"
+            db, competition_port, competition_id, participant.registration_id, place, f"{totals.get(participant.registration_id, 0)} из {max_total} по заданиям"
         )
     return results_service.publish_results(db, competition_port, competition_id)

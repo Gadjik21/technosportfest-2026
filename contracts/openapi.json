@@ -2150,6 +2150,48 @@
           }
         ]
       }
+    },
+    "/competitions/{competitionId}/standings": {
+      "get": {
+        "tags": [
+          "Contests"
+        ],
+        "summary": "Таблица результатов по заданиям",
+        "description": "Публично для published/completed соревнований с заданиями; черновик виден только organizer. Баллы по каждому заданию, как в Codeforces.",
+        "x-owner": "Contests",
+        "x-milestone": "v4",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Standings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/401"
+          },
+          "404": {
+            "$ref": "#/components/responses/404"
+          }
+        },
+        "operationId": "getStandings",
+        "parameters": [
+          {
+            "name": "competitionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -3468,6 +3510,91 @@
           "status",
           "publishedCount",
           "publishedAt"
+        ]
+      },
+      "StandingsTask": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "maxScore": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "maxScore"
+        ]
+      },
+      "StandingsRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "registrationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "place": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "totalScore": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "taskScores": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "nullable": true
+            }
+          }
+        },
+        "required": [
+          "registrationId",
+          "fullName",
+          "place",
+          "totalScore",
+          "taskScores"
+        ]
+      },
+      "Standings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "maxTotalScore": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandingsTask"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StandingsRow"
+            }
+          }
+        },
+        "required": [
+          "maxTotalScore",
+          "tasks",
+          "items"
         ]
       }
     },

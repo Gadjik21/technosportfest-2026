@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { api, type Competition, type Document, type News, type Page, type Participant, type ResultDraft, type SubmissionForGrading, type Task } from "./api";
+import { StandingsTable } from "./PublicPages";
 import { ConfirmDialog, Empty, Link, LoadState, Notice, PageTitle, Status, date, errorMessage, go, useLoad } from "./ui";
 
 async function allPages<T>(getPage: (page: number) => Promise<Page<T>>): Promise<T[]> {
@@ -116,7 +117,12 @@ function ContestGrading({ competition, onFinished }: { competition: Competition;
     try { await api.finishContest(id); setSuccess("Контест завершён, результаты опубликованы."); onFinished(); }
     catch (reason) { setError(errorMessage(reason)); } finally { setBusyId(""); }
   }
-  if (competition.status === "completed") return <LoadState loading={results.loading} error={results.error}>{results.data?.items.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Место</th><th>Участник</th><th>Баллы</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td><strong>{item.points}</strong> <small>({item.scoreText})</small></td></tr>)}</tbody></table></div></div> : <Empty>Результатов нет.</Empty>}</LoadState>;
+  if (competition.status === "completed") return <>
+    <div className="section-heading"><h2>Итог</h2></div>
+    <LoadState loading={results.loading} error={results.error}>{results.data?.items.length ? <div className="card table-card"><div className="table-wrap"><table><thead><tr><th>Место</th><th>Участник</th><th>Результат</th><th>Очки рейтинга</th></tr></thead><tbody>{results.data.items.map(item => <tr key={item.id}><td>{item.place}</td><td>{item.fullName}</td><td>{item.scoreText || "—"}</td><td><strong>{item.points}</strong></td></tr>)}</tbody></table></div></div> : <Empty>Результатов нет.</Empty>}</LoadState>
+    <div className="section-heading"><h2>Результаты по заданиям</h2></div>
+    <StandingsTable competitionId={id} />
+  </>;
   const ungraded = submissions.data?.filter(item => item.score === null).length ?? 0;
   return <>
     <div className="section-heading"><div><h2>Участники</h2><p className="muted">Все, кто подал заявку на это соревнование.</p></div></div>

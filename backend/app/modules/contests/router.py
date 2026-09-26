@@ -90,6 +90,26 @@ class FinishContestResponse(BaseModel):
     publishedAt: str
 
 
+class StandingsTaskResponse(BaseModel):
+    id: UUID
+    title: str
+    maxScore: int
+
+
+class StandingsRowResponse(BaseModel):
+    registrationId: UUID
+    fullName: str
+    place: int
+    totalScore: int
+    taskScores: list[int | None]
+
+
+class StandingsResponse(BaseModel):
+    maxTotalScore: int
+    tasks: list[StandingsTaskResponse]
+    items: list[StandingsRowResponse]
+
+
 def _task_response(task: Task) -> TaskResponse:
     return TaskResponse(
         id=task.id, competitionId=task.competition_id, title=task.title, statement=task.statement, maxScore=task.max_score, orderIndex=task.order_index
@@ -123,6 +143,27 @@ def list_tasks(
     is_organizer = principal is not None and principal.role == "organizer"
     tasks = service.list_tasks(db, competition_port, competitionId, is_organizer)
     return [_task_response(t) for t in tasks]
+
+
+@router.get("/competitions/{competitionId}/standings", response_model=StandingsResponse)
+def get_standings(
+    competitionId: UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    competition_port: CompetitionPort = Depends(get_competition_port),
+) -> StandingsResponse:
+    principal = optional_principal(request)
+    is_organizer = principal is not None and principal.role == "organizer"
+    tasks, rows = service.contest_standings(db, competition_port, competitionId, is_organizer)
+    max_total = sum(task.max_score for task in tasks)
+    return StandingsResponse(
+        maxTotalScore=max_total,
+        tasks=[StandingsTaskResponse(id=t.id, title=t.title, maxScore=t.max_score) for t in tasks],
+        items=[
+            StandingsRowResponse(registrationId=r.registration_id, fullName=r.full_name, place=r.place, totalScore=r.total_score, taskScores=r.task_scores)
+            for r in rows
+        ],
+    )
 
 
 @router.post("/competitions/{competitionId}/tasks", response_model=TaskResponse, status_code=201)

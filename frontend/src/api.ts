@@ -16,6 +16,7 @@ export type MyRating = S["MyRating"];
 export type Task = S["Task"];
 export type Submission = S["Submission"];
 export type SubmissionForGrading = S["SubmissionForGrading"];
+export type Standings = S["Standings"];
 export type Page<T> = { items: T[]; page: number; pageSize: number; total: number };
 
 export class ApiError extends Error {
@@ -86,4 +87,5 @@ export const api = {
   submissionsForGrading: (competitionId: string) => request<SubmissionForGrading[]>(`/competitions/${competitionId}/submissions`),
   gradeSubmission: (competitionId: string, submissionId: string, body: S["GradeRequest"]) => request<Submission>(`/competitions/${competitionId}/submissions/${submissionId}`, { method: "PATCH", body }),
   finishContest: (competitionId: string) => request<S["FinishContestResponse"]>(`/competitions/${competitionId}/finish-contest`, { method: "POST" }),
+  standings: (competitionId: string) => request<Standings>(`/competitions/${competitionId}/standings`),
 };
