@@ -377,20 +377,6 @@ p {
   gap:11px;
   flex-wrap:wrap
 }
-.hero-mark {
-  position:relative;
-  z-index:1;
-  font-family:Manrope,sans-serif;
-  font-size:clamp(4rem,9vw,10rem);
-  font-weight:800;
-  letter-spacing:-.1em;
-  line-height:1;
-  color:#9da2ff33;
-  white-space:nowrap
-}
-.hero-mark span {
-  color:#c7caff44
-}
 .card-top {
   display:flex;
   justify-content:space-between;
@@ -1011,9 +997,6 @@ legend {
     border-radius:12px;
     padding:40px 25px;
     min-height:auto
-  }
-  .hero-mark {
-    display:none
   }
   .hero h1 {
     font-size:2.1rem
